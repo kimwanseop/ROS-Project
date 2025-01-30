@@ -179,7 +179,7 @@ border-radius: 80px; font: 30pt &quot;Ubuntu&quot;</string>
      <height>521</height>
     </rect>
    </property>
-   <widget class="QLabel" name="map_frame">
+   <widget class="QLabel" name="label">
     <property name="geometry">
      <rect>
       <x>0</x>
@@ -198,7 +198,7 @@ border-radius: 80px; font: 30pt &quot;Ubuntu&quot;</string>
      <bool>true</bool>
     </property>
    </widget>
-   <widget class="QPushButton" name="btn_return">
+   <widget class="QPushButton" name="pushButton">
     <property name="geometry">
      <rect>
       <x>300</x>
@@ -312,29 +312,6 @@ border-radius: 80px; font: 30pt &quot;Ubuntu&quot;</string>
     </property>
    </widget>
   </widget>
-  <widget class="QPushButton" name="btn_logout">
-   <property name="geometry">
-    <rect>
-     <x>310</x>
-     <y>10</y>
-     <width>80</width>
-     <height>31</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>로그아웃</string>
-   </property>
-  </widget>
-  <zorder>background</zorder>
-  <zorder>setting</zorder>
-  <zorder>my_info</zorder>
-  <zorder>car_info</zorder>
-  <zorder>map_info</zorder>
-  <zorder>map_widget</zorder>
-  <zorder>login_widget</zorder>
-  <zorder>btn_home</zorder>
-  <zorder>start_widget</zorder>
-  <zorder>btn_logout</zorder>
  </widget>
  <resources/>
  <connections/>

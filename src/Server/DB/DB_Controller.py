@@ -1,7 +1,7 @@
 import mysql.connector
 
 class ASAP_DB():
-    def __init__(self, db_name='asap', host='localhost', user='root', password='1234'):
+    def __init__(self, db_name='asap', host='localhost', user='asap', password='1234'):
         self.db_name = db_name
         self.host = host
         self.user = user
@@ -32,7 +32,6 @@ class ASAP_DB():
         cursor.close()
         remote.close()
 
-
     def show_execute(self, cursor):
         result = cursor.fetchall()
         for data in result:
@@ -48,9 +47,9 @@ class ASAP_DB():
         remote.close()
         return result
 
-    def insert_values(self, table_name, values):
+    def insert_values(self, table_name, columns, values):
         cursor, remote = self.get_cursor()
-        query = f"INSERT INTO {table_name} VALUES ({values})"
+        query = f"INSERT INTO {table_name} ({columns}) VALUES ({values})"
         cursor.execute(query)
         self.info(f"SELECT * FROM {table_name}")
         remote.commit()
@@ -65,3 +64,12 @@ class ASAP_DB():
         remote.commit()
         cursor.close()
         remote.close()
+
+    def delete_values(self, table_name, condition):
+        cursor, remote = self.get_cursor()
+        query = f"DELETE FROM {table_name} WHERE {condition}"
+        cursor.execute(query)
+        self.info(f"SELECT * FROM {table_name}")
+        remote.commit()
+        cursor.close()
+        remote.close()      
