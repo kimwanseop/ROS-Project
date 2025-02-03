@@ -1,6 +1,8 @@
 import os 
 import sys 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import cv2
 import time 
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -13,7 +15,7 @@ from PyQt5.QtGui import QFont
 from DB.Car import Car
 from DB.Member import Member
 
-ui_file = "./Server.ui"
+ui_file = "./UI/Server.ui"
 form_class = uic.loadUiType(ui_file)[0]
 
 class Manage_Server(Init_Manage_Server, form_class):
@@ -24,28 +26,6 @@ class Manage_Server(Init_Manage_Server, form_class):
         self.set_Threads()
         self.button_tools()
         self.init_uic()
-        self.init_car()
-
-    def init_car(self):
-        self.cardb.add_car(Car('Toyota', 'Corolla', '중형', '137가 1327', '13'))
-        self.cardb.add_car(Car('Hyundai', 'Sonata', '중형', '247다 5328', '14'))
-        self.cardb.add_car(Car('Kia', 'K5', '중형', '147가 1327', '15'))
-        self.cardb.add_car(Car('BMW', 'M3', '대형', '137가 3287', '16'))
-        self.cardb.add_car(Car('Hyundai', 'E300', '소형', '137가 1328', '17'))
-        self.cardb.add_car(Car('Hyundai', 'E300', '소형', '137가 1329', '18'))
-        self.cardb.add_car(Car('Hyundai', 'Genesis', '중형', '137가 1330', '19'))
-        self.cardb.add_car(Car('Hyundai', 'Genesis', '중형', '137가 1331', '20'))
-
-        self.cardb.add_car(Car('ASAP', 'Pinky', '소형', '324조 3321', '44'))
-        self.cardb.add_car(Car('ASAP', 'Pinky', '소형', '321조 3322', '45'))
-        self.cardb.add_car(Car('ASAP', 'Pinky', '소형', '321조 3323', '46'))
-        self.cardb.add_car(Car('ASAP', 'Pinky', '소형', '321조 3324', '47'))
-        self.cardb.add_car(Car('ASAP', 'Violet', '중형', '321조 3325', '48'))
-        self.cardb.add_car(Car('ASAP', 'Violet', '중형', '321조 3326', '49'))
-        self.cardb.add_car(Car('ASAP', 'Violet', '중형', '321조 3327', '50'))
-        self.cardb.add_car(Car('ASAP', 'Minty', '대형', '321조 3328', '51'))
-        self.cardb.add_car(Car('ASAP', 'Minty', '대형', '321조 3329', '52'))
-
 
 # Main Window 관련
 ################################################################################################
@@ -70,7 +50,7 @@ class Manage_Server(Init_Manage_Server, form_class):
 
         self.member_remove.clicked.connect(self.member_delele_btn)
         self.member_searchbar.textChanged.connect(self.apply_filter)
-
+        
 
     def show_type_info(self):
         try:
@@ -88,11 +68,7 @@ class Manage_Server(Init_Manage_Server, form_class):
             del self.table_model.data[index.row()]
 
         self.table_model.layoutChanged.emit()  # 모델 갱신
-        self.proxy_model = QSortFilterProxyModel()
-        self.proxy_model.setSourceModel(self.table_model)
-        self.proxy_model.setFilterKeyColumn(-1)  # 모든 열을 필터링 대상으로 설정
-        self.proxy_model.setFilterCaseSensitivity(Qt.CaseInsensitive)  # 대소문자 구분 안 함
-        self.member_widget.setModel(self.proxy_model)
+        self.member_widget.setModel(self.table_model)
 
     def car_delete_btn(self):
         car_number = self.car_delete_number.text().strip()
@@ -117,7 +93,7 @@ class Manage_Server(Init_Manage_Server, form_class):
 
         
     def popup_window(self, window_type):
-        self.is_login=True
+        # self.is_login=True
         if self.is_login or window_type=='login' or window_type=='main_window':
         
             for key, value in self.WINDOW_TYPES.items():
@@ -132,9 +108,14 @@ class Manage_Server(Init_Manage_Server, form_class):
         else:
             self.log_alert.show()
 
-        if window_type == "login":
-            self.pw.start()
+        if window_type == "map":
+            self.map_thread.start() 
+            self.map_thread.is_running = True
+        else:
+            self.map_thread.stop() 
+            self.map_thread.is_running = False
 
+    
     def init_parameters(self):
         self.enter = False
         self.password = ''
@@ -146,7 +127,18 @@ class Manage_Server(Init_Manage_Server, form_class):
         self.init_login.show()
 
     def click_enter(self):
-        self.enter = True
+        id = self.login_inid.text()
+
+        if self.password == '1234' and id == 'admin':
+            self.is_login = True
+            self.popup_window("main_window")
+        else:
+            self.loginWindow.show()
+
+        self.password = ''
+        self.before_len = 0
+        self.login_inid.setText('')
+        self.login_inpw.setText('')
 
     def login(self):
         self.init_logo.hide()
@@ -154,8 +146,28 @@ class Manage_Server(Init_Manage_Server, form_class):
         self.show_login()
 
     def set_Threads(self):
-        self.pw = Thread()
-        self.pw.data.connect(self.input_password)
+        self.login_inpw.textChanged.connect(self.input_password)
+
+        self.map_thread = Thread()
+        self.map_thread.data.connect(self.update_map)
+
+    def update_map(self):
+        # map_frame = 
+        total = len(self.cardb.car_dict)
+        len_stay = 0
+        len_rent = 0
+        len_destroid = 0
+
+        for car in self.cardb.car_dict.values():
+            if car.isrented == 1:
+                len_rent += 1
+            if car.destroied == 1:
+                len_destroid += 1
+        len_stay = total - len_rent - len_destroid
+
+        self.map_stay.setText(str(len_stay))
+        self.map_rent.setText(str(len_rent))
+        self.map_destroid.setText(str(len_destroid))
 
     def start_Threads(self):
         pass    
@@ -171,28 +183,32 @@ class Manage_Server(Init_Manage_Server, form_class):
 
     def init_uic(self):
         self.loginWindow = QDialog()
-        uic.loadUi('./login.ui', self.loginWindow)
+        uic.loadUi('./UI/login.ui', self.loginWindow)
         self.loginWindow.Check.clicked.connect(lambda: self.close_window('login'))
 
         self.add_carWindow = QDialog()
-        uic.loadUi('./add_car.ui', self.add_carWindow)
+        uic.loadUi('./UI/add_car.ui', self.add_carWindow)
         self.add_carWindow.add_cancel.clicked.connect(lambda: self.close_window('add_car'))
         self.add_carWindow.add_register.clicked.connect(self.add_car_register)
         self.add_carWindow.add_image.clicked.connect(self.add_car_load_img)
 
         self.add_alert = QDialog()
-        uic.loadUi('./register_alert.ui', self.add_alert)
+        uic.loadUi('./UI/register_alert.ui', self.add_alert)
         self.add_alert.alert_ok.clicked.connect(lambda: self.close_window('alert'))
 
         self.log_alert = QDialog()
-        uic.loadUi('./login_alert.ui', self.log_alert)
+        uic.loadUi('./UI/login_alert.ui', self.log_alert)
         self.log_alert.login_ok.clicked.connect(lambda: self.close_window('login_alert'))
 
         self.add_member = QDialog()
-        uic.loadUi("./user.ui", self.add_member)
-        self.add_member.add_cancel.clicked.connect(lambda: self.close_window('add_member'))
-        self.add_member.add_register.clicked.connect(self.add_member_register)
+        uic.loadUi("./UI/register.ui", self.add_member)
+        self.add_member.cancel.clicked.connect(lambda: self.close_window('add_member'))
+        self.add_member.register_2.clicked.connect(self.add_member_register)
         self.add_member.add_image.clicked.connect(self.add_member_load_img)
+
+        self.pw_alert = QDialog()
+        uic.loadUi('./UI/password_alert.ui', self.pw_alert)
+        self.pw_alert.alert_ok.clicked.connect(lambda: self.close_window('pw_alert'))
 
     def close_window(self, dialog):
         if dialog == 'login':
@@ -205,6 +221,8 @@ class Manage_Server(Init_Manage_Server, form_class):
             self.log_alert.close()
         elif dialog == 'add_member':
             self.add_member.close()
+        elif dialog == 'pw_alert':
+            self.pw_alert.close()
 
     def add_member_btn(self):
         self.add_member.show()
@@ -212,30 +230,41 @@ class Manage_Server(Init_Manage_Server, form_class):
 
     def add_member_load_img(self):
         img_path = QFileDialog.getOpenFileName(self, 'Open file', './', 'Image files (*.jpg *.png)')[0]
-        self.add_member.add_img_path.setText(img_path)
+        self.add_member.img_path.setText(img_path)
         pixmap = QPixmap(img_path)
         pixmap = pixmap.scaled(300, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
-        self.add_member.add_image_frame.setPixmap(pixmap)    
+        self.add_member.image_frame.setPixmap(pixmap)    
+
 
     def add_member_register(self):
-        add_name = self.add_member.add_name.text().strip()
-        add_phone = self.add_member.add_phone.text().strip()
-        add_license = self.add_member.add_license.text().strip()
-        add_img_path = self.add_member.add_img_path.text().strip()
-        data = [add_name, add_phone, add_license, add_img_path]
-        if '' in data:
+        ID = self.add_member.id.text().strip()
+        PW = self.add_member.pw.text().strip()
+        PW_check = self.add_member.pw_check.text().strip()
+        name = self.add_member.name.text().strip()
+        phone = self.add_member.phone.text().strip()
+        license = self.add_member.license.text().strip()
+        img_path = self.add_member.img_path.text().strip()
+        data = [ID, PW, PW_check, name, phone, license, img_path]
+
+        if PW != PW_check:
+            self.pw_alert.show()
+            return
+        elif '' in data:
             self.add_alert.show()
             return
         else:
-            member = Member(add_name, add_phone, add_license, add_img_path)
+            member = Member(name, phone, license, img_path)
+            member.ID, member.PW = ID, PW
             self.memdb.add_member(member)
             self.member_listup(member)
-            self.add_member.add_name.setText('')
-            self.add_member.add_phone.setText('')
-            self.add_member.add_license.setText('')
-            self.add_member.add_img_path.setText('')
-            self.add_member.add_image_frame.clear()
+            self.add_member.id.setText('')
+            self.add_member.pw.setText('')
+            self.add_member.pw_check.setText('')
+            self.add_member.name.setText('')
+            self.add_member.phone.setText('')
+            self.add_member.license.setText('')
+            self.add_member.img_path.setText('')
             self.add_member.close()
         
     def add_car(self):
@@ -279,34 +308,51 @@ class Manage_Server(Init_Manage_Server, form_class):
     '''
     123가 3245 소형
     '''
+
     def input_password(self): 
         text = self.login_inpw.text()
         length = len(text)
-
-        if length == 0:
-            return
         
-        if length != self.before_len:
-            self.login_inpw.setText('*'*(length-1) + text[-1])
-            self.password += text[-1]
+        if length == 0:
+            self.before_len = 0
+            self.password = ''
+            return
+
+        if text[-1] != '*' or length < self.before_len:
+            if length >= self.before_len:
+                self.password += text[-1]
+                self.login_inpw.setText('*'*(length))
+            elif length < self.before_len:
+                self.password = self.password[:-1]
             self.before_len = length
 
-        if self.enter:
-            self.enter = False
-            id = self.login_inid.text()
 
-            if self.password == '1234' and id == 'admin':
-                self.is_login = True
-                self.pw.is_running = False
-                self.pw.stop()
-                self.popup_window("main_window")
-            else:
-                self.loginWindow.show()
+    # def input_password(self): 
+    #     text = self.login_inpw.text()
+    #     length = len(text)
 
-            self.password = ''
-            self.before_len = 0
-            self.login_inid.setText('')
-            self.login_inpw.setText('')
+    #     if length == 0:
+    #         return
+        
+    #     if length != self.before_len:
+    #         self.login_inpw.setText('*'*(length-1) + text[-1])
+    #         self.password += text[-1]
+    #         self.before_len = length
+
+    #     if self.enter:
+    #         self.enter = False
+    #         id = self.login_inid.text()
+
+    #         if self.password == '1234' and id == 'admin':
+    #             self.is_login = True
+    #             self.popup_window("main_window")
+    #         else:
+    #             self.loginWindow.show()
+
+    #         self.password = ''
+    #         self.before_len = 0
+    #         self.login_inid.setText('')
+    #         self.login_inpw.setText('')
 
 ################################################################################################
 

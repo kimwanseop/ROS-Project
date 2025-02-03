@@ -23,7 +23,7 @@ class Init_User_Server(QMainWindow, form_class):
             'main_window': False,
             'map': False,
             # 'car' : False,
-            # 'select_car' : False,
+            'select_car' : False,
             'login' : False,
             # 'setting' : False 
         }
@@ -31,14 +31,14 @@ class Init_User_Server(QMainWindow, form_class):
             'main_window': self.show_main_window,    
             'map':self.show_map_window,        
             # 'car':self.show_car_window,
-            # 'select_car' : self.show_select_car_window,
+            'select_car' : self.show_select_car_window,
             'login' : self.show_login_window,
         }
         self.HIDE_WINDOW = {
             'main_window': self.hide_main_window,
             'map':self.hide_map_window,
             # 'car':self.hide_car_window,        
-            # 'select_car' : self.hide_select_car_window,
+            'select_car' : self.hide_select_car_window,
             'login' : self.hide_login_window,
         }
         self.cardb = CarDB()
@@ -50,12 +50,18 @@ class Init_User_Server(QMainWindow, form_class):
         self.show_main_window() 
         self.hide_map_window()
         # self.hide_car_window()
-        # self.hide_select_car_window()
+        self.hide_select_car_window()
         self.hide_login_window()
+        self.car_select_info_type.clear()
+        items = ['all', 'brand', 'type', 'name']
+        self.car_select_info_type.addItems(items)
+        self.is_renting = False
 
     def show_main_window(self):
         self.start_widget.show()
         self.btn_home.hide()
+        self.car_searchbar.setText('')
+        self.car_select_info_type.setCurrentIndex(0)
         if self.is_login:
             self.login.hide()
             self.register_2.hide()
@@ -71,11 +77,11 @@ class Init_User_Server(QMainWindow, form_class):
         self.register_2.hide()
         self.btn_home.show()
 
-    # def show_select_car_window(self):
-    #     self.select_car_widget.show()
+    def show_select_car_window(self):
+        self.select_car_widget.show()
 
-    # def hide_select_car_window(self):
-        # self.select_car_widget.hide()
+    def hide_select_car_window(self):
+        self.select_car_widget.hide()
     
     def hide_login_window(self):
         self.login_widget.hide()
@@ -87,9 +93,16 @@ class Init_User_Server(QMainWindow, form_class):
     def show_map_window(self):
         self.map_widget.show()
         self.btn_home.show()
+        if self.is_renting:
+            self.btn_return.show()
+            self.btn_rent.hide()
+        else:
+            self.btn_return.hide()
+            self.btn_rent.show()
 
     def hide_map_window(self):
         self.map_widget.hide()
+
 
     # def show_car_window(self):
     #     self.car_widget.show()
@@ -99,8 +112,9 @@ class Init_User_Server(QMainWindow, form_class):
 
 
     def car_number_listup(self, car_name=None, mode='show'):
+        self.btn_back.show()
         self.remove_car_box()
-        num_columns = 4 
+        num_columns = 3 
         self.delete_car_info = car_name
         car_numbers = self.cardb.car_name[car_name]
         for i, car_number in enumerate(car_numbers): 
@@ -111,7 +125,7 @@ class Init_User_Server(QMainWindow, form_class):
             
             icon = QIcon(car.img_path) 
             button.setIcon(icon)
-            button.setIconSize(QSize(200, 160)) 
+            button.setIconSize(QSize(100, 80)) 
             button.setFixedSize(112, 90) 
             button.setStyleSheet('''
                                  font: bold 20px; 
@@ -124,14 +138,14 @@ class Init_User_Server(QMainWindow, form_class):
             if mode == 'delete':
                 button.clicked.connect(lambda _, n=car_number: self.on_button_click(n, mode))
             else:
-                button.clicked.connect(lambda _, n=car_number: self.show_cur_pos(n))
+                button.clicked.connect(lambda _, n=car_number: self.show_rent_window(n))
             
             rent = '대여중' if car.isrented else '대기중'
             rent = '파손' if car.destroied else rent
 
 
             # 설명 생성
-            description = QLabel(f"{car.car_number}  상태 : {rent}")
+            description = QLabel(f"{car.car_number}\n상태 : {rent}")
             description.setStyleSheet("font: 12px; color: black; text-align: center;")
             description.setAlignment(Qt.AlignCenter)
             
@@ -149,9 +163,9 @@ class Init_User_Server(QMainWindow, form_class):
             col = (i - 1) % num_columns
             self.car_scrollArea.addWidget(button_with_description, row, col)
 
-    def show_cur_pos(self, car_number):
-        car = self.cardb.car_dict[car_number]
-        print(f"Car number : {car.car_number} \nBrand : {car.brand} \nCar name : {car.car_name} \nType : {car.type} \nPin number : {car.pin_number} \nBattery : {car.battery} \nDestroied : {car.destroied} \nIs rented : {car.isrented} \nImage path : {car.img_path} \nPosition : {car.pos}")
+    def show_rent_window(self, car_number):
+        pass 
+        
 
     def remove_car_box(self):
         for buttons in self.car_buttons:
@@ -164,13 +178,10 @@ class Init_User_Server(QMainWindow, form_class):
 
     def car_name_listup(self, data=None, info_type='all', mode='show'):
         self.remove_car_box()
+        self.btn_back.hide()
 
-        # self.car_back.hide()
-        # self.car_delete.hide()
-        # self.car_remove.hide()
-        # self.car_delete_number.hide()
 
-        num_columns = 4 
+        num_columns = 3 
 
         car_info, car_name = self.cardb.get_stat_info(info_type)
         if len(self.cardb.car_dict)==0:
@@ -202,6 +213,7 @@ class Init_User_Server(QMainWindow, form_class):
                             car_name[nm] = [car_num]
                         else:
                             car_name[nm].append(car_num)
+
         for i, name in enumerate(car_name): 
             i = i + 1
             total_num = len(car_name[name])
@@ -213,8 +225,8 @@ class Init_User_Server(QMainWindow, form_class):
             car = self.cardb.car_dict[car_name[name][0]]
             icon = QIcon(car.img_path) 
             button.setIcon(icon)
-            button.setIconSize(QSize(200, 160)) 
-            button.setFixedSize(224, 180) 
+            button.setIconSize(QSize(100, 80)) 
+            button.setFixedSize(112, 90) 
             button.setStyleSheet('''
                                  font: bold 20px; 
                                  padding: 5px;
@@ -227,7 +239,7 @@ class Init_User_Server(QMainWindow, form_class):
             button.clicked.connect(lambda _, n=name: self.car_number_listup(n, mode))
 
             # 설명 생성
-            description = QLabel(f"{name}   잔여량 : {total_num} 대여량 : {rented_num}")
+            description = QLabel(f"{name}\n잔여량 : {total_num} 대여량 : {rented_num}")
             description.setStyleSheet("font: 12px; color: black; text-align: center;")
             description.setAlignment(Qt.AlignCenter)
             

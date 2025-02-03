@@ -171,7 +171,7 @@ font: Bold 14pt &quot;Ubuntu&quot;;</string>
     <string/>
    </property>
    <property name="pixmap">
-    <pixmap>Image/ASAP_LOGO_long.jpg</pixmap>
+    <pixmap>../../../../../../../../../.designer/backup/Image/ASAP_LOGO_long.jpg</pixmap>
    </property>
    <property name="scaledContents">
     <bool>true</bool>
@@ -691,6 +691,9 @@ background-color: rgba(0,0,0,0);</string>
    <property name="alignment">
     <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
    </property>
+   <property name="readOnly">
+    <bool>true</bool>
+   </property>
   </widget>
   <widget class="QWidget" name="map_widget" native="true">
    <property name="geometry">
@@ -704,9 +707,9 @@ background-color: rgba(0,0,0,0);</string>
    <widget class="QLabel" name="map_label_4">
     <property name="geometry">
      <rect>
-      <x>30</x>
-      <y>480</y>
-      <width>151</width>
+      <x>860</x>
+      <y>280</y>
+      <width>121</width>
       <height>21</height>
      </rect>
     </property>
@@ -739,12 +742,12 @@ background-color: rgba(0,0,0,0);</string>
      <set>Qt::AlignCenter</set>
     </property>
    </widget>
-   <widget class="QLabel" name="map_label_6">
+   <widget class="QLabel" name="map_stay">
     <property name="geometry">
      <rect>
-      <x>30</x>
-      <y>190</y>
-      <width>151</width>
+      <x>860</x>
+      <y>120</y>
+      <width>121</width>
       <height>31</height>
      </rect>
     </property>
@@ -753,44 +756,6 @@ background-color: rgba(0,0,0,0);</string>
     </property>
     <property name="text">
      <string>0</string>
-    </property>
-    <property name="alignment">
-     <set>Qt::AlignCenter</set>
-    </property>
-   </widget>
-   <widget class="QLabel" name="map_label_5">
-    <property name="geometry">
-     <rect>
-      <x>30</x>
-      <y>80</y>
-      <width>151</width>
-      <height>31</height>
-     </rect>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">font: bold 20px; background-color: white;  border-radius:5px;</string>
-    </property>
-    <property name="text">
-     <string>0</string>
-    </property>
-    <property name="alignment">
-     <set>Qt::AlignCenter</set>
-    </property>
-   </widget>
-   <widget class="QLabel" name="map_label_0">
-    <property name="geometry">
-     <rect>
-      <x>30</x>
-      <y>150</y>
-      <width>151</width>
-      <height>21</height>
-     </rect>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">font: bold 20px; color: white;</string>
-    </property>
-    <property name="text">
-     <string>호출</string>
     </property>
     <property name="alignment">
      <set>Qt::AlignCenter</set>
@@ -799,8 +764,8 @@ background-color: rgba(0,0,0,0);</string>
    <widget class="QLabel" name="map_frame">
     <property name="geometry">
      <rect>
-      <x>210</x>
-      <y>17</y>
+      <x>28</x>
+      <y>20</y>
       <width>801</width>
       <height>561</height>
      </rect>
@@ -814,7 +779,7 @@ font-size: 13px; background-color: white;</string>
      <string/>
     </property>
     <property name="pixmap">
-     <pixmap>Image/map.jpg</pixmap>
+     <pixmap>../Image/map.jpg</pixmap>
     </property>
     <property name="scaledContents">
      <bool>true</bool>
@@ -823,9 +788,9 @@ font-size: 13px; background-color: white;</string>
    <widget class="QLabel" name="map_label_3">
     <property name="geometry">
      <rect>
-      <x>30</x>
-      <y>370</y>
-      <width>151</width>
+      <x>860</x>
+      <y>180</y>
+      <width>121</width>
       <height>21</height>
      </rect>
     </property>
@@ -839,31 +804,12 @@ font-size: 13px; background-color: white;</string>
      <set>Qt::AlignCenter</set>
     </property>
    </widget>
-   <widget class="QLabel" name="map_label_2">
-    <property name="geometry">
-     <rect>
-      <x>30</x>
-      <y>260</y>
-      <width>151</width>
-      <height>21</height>
-     </rect>
-    </property>
-    <property name="styleSheet">
-     <string notr="true">font: bold 20px; color: white;</string>
-    </property>
-    <property name="text">
-     <string>반납</string>
-    </property>
-    <property name="alignment">
-     <set>Qt::AlignCenter</set>
-    </property>
-   </widget>
    <widget class="QLabel" name="map_label_1">
     <property name="geometry">
      <rect>
-      <x>30</x>
-      <y>40</y>
-      <width>151</width>
+      <x>860</x>
+      <y>90</y>
+      <width>121</width>
       <height>21</height>
      </rect>
     </property>
@@ -877,12 +823,12 @@ font-size: 13px; background-color: white;</string>
      <set>Qt::AlignCenter</set>
     </property>
    </widget>
-   <widget class="QLabel" name="map_label_9">
+   <widget class="QLabel" name="map_destroid">
     <property name="geometry">
      <rect>
-      <x>30</x>
-      <y>520</y>
-      <width>151</width>
+      <x>860</x>
+      <y>320</y>
+      <width>121</width>
       <height>31</height>
      </rect>
     </property>
@@ -896,12 +842,12 @@ font-size: 13px; background-color: white;</string>
      <set>Qt::AlignCenter</set>
     </property>
    </widget>
-   <widget class="QLabel" name="map_label_8">
+   <widget class="QLabel" name="map_rent">
     <property name="geometry">
      <rect>
-      <x>30</x>
-      <y>410</y>
-      <width>151</width>
+      <x>860</x>
+      <y>220</y>
+      <width>121</width>
       <height>31</height>
      </rect>
     </property>
@@ -918,10 +864,10 @@ font-size: 13px; background-color: white;</string>
    <widget class="QLabel" name="map_info">
     <property name="geometry">
      <rect>
-      <x>10</x>
+      <x>840</x>
       <y>20</y>
-      <width>191</width>
-      <height>561</height>
+      <width>161</width>
+      <height>361</height>
      </rect>
     </property>
     <property name="styleSheet">
@@ -933,20 +879,22 @@ font-size: 13px; background-color: gray;</string>
      <string/>
     </property>
    </widget>
-   <widget class="QLabel" name="map_label_7">
+   <widget class="QLabel" name="map_info_2">
     <property name="geometry">
      <rect>
-      <x>30</x>
-      <y>300</y>
-      <width>151</width>
-      <height>31</height>
+      <x>840</x>
+      <y>20</y>
+      <width>161</width>
+      <height>51</height>
      </rect>
     </property>
     <property name="styleSheet">
-     <string notr="true">font: bold 20px; background-color: white;  border-radius:5px;</string>
+     <string notr="true">border-radius: 10px;
+font: bold 20px; color: white;
+background-color: rgb(12, 121, 122);</string>
     </property>
     <property name="text">
-     <string>0</string>
+     <string>STATUS</string>
     </property>
     <property name="alignment">
      <set>Qt::AlignCenter</set>
@@ -955,26 +903,31 @@ font-size: 13px; background-color: gray;</string>
    <zorder>map_bg</zorder>
    <zorder>map_frame</zorder>
    <zorder>map_info</zorder>
-   <zorder>map_label_0</zorder>
    <zorder>map_label_4</zorder>
-   <zorder>map_label_9</zorder>
+   <zorder>map_destroid</zorder>
    <zorder>map_label_3</zorder>
-   <zorder>map_label_7</zorder>
-   <zorder>map_label_8</zorder>
-   <zorder>map_label_6</zorder>
+   <zorder>map_rent</zorder>
    <zorder>map_label_1</zorder>
-   <zorder>map_label_2</zorder>
-   <zorder>map_label_5</zorder>
+   <zorder>map_stay</zorder>
+   <zorder>map_info_2</zorder>
+  </widget>
+  <widget class="QComboBox" name="member_select_type">
+   <property name="geometry">
+    <rect>
+     <x>480</x>
+     <y>70</y>
+     <width>171</width>
+     <height>41</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">font: Bold 12pt &quot;Ubuntu&quot;;
+</string>
+   </property>
   </widget>
   <zorder>Background</zorder>
   <zorder>label</zorder>
   <zorder>init_logo</zorder>
-  <zorder>RT_loc_info</zorder>
-  <zorder>Manage_member</zorder>
-  <zorder>Manage_Log</zorder>
-  <zorder>Setting</zorder>
-  <zorder>Manage_car</zorder>
-  <zorder>Static</zorder>
   <zorder>login_bg</zorder>
   <zorder>login_inid</zorder>
   <zorder>login_inpw</zorder>
@@ -995,13 +948,20 @@ font-size: 13px; background-color: gray;</string>
   <zorder>car_delete</zorder>
   <zorder>car_back</zorder>
   <zorder>car_select_info_type</zorder>
+  <zorder>RT_loc_info</zorder>
+  <zorder>Setting</zorder>
+  <zorder>Static</zorder>
+  <zorder>Manage_member</zorder>
+  <zorder>Manage_Log</zorder>
+  <zorder>Manage_car</zorder>
   <zorder>member_bg</zorder>
-  <zorder>member_widget</zorder>
-  <zorder>member_searchbar_bg</zorder>
-  <zorder>member_searchbar</zorder>
   <zorder>member_register</zorder>
   <zorder>member_remove</zorder>
+  <zorder>member_widget</zorder>
   <zorder>member_search</zorder>
+  <zorder>member_searchbar_bg</zorder>
+  <zorder>member_select_type</zorder>
+  <zorder>member_searchbar</zorder>
   <zorder>map_widget</zorder>
  </widget>
  <resources/>

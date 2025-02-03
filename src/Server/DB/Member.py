@@ -40,8 +40,8 @@ class MemberDB(ASAP_DB):
                 member.member_code = member_code
                 self.update_data(member, member_code)
                 break
-        columns = "name, phone, license, img_path, member_code, point, is_renting, ID, PW"
-        values = f"'{member.name}', '{member.phone}', '{member.license}', '{member.img_path}', '{member.member_code}', '{member.point}', '{member.is_renting}', '{member.ID}', '{member.PW}'"
+        columns = "name, phone, license, img_path, member_code, point, is_renting, ID, PW, member_grade"
+        values = f"'{member.name}', '{member.phone}', '{member.license}', '{member.img_path}', '{member.member_code}', '{member.point}', '{member.is_renting}', '{member.ID}', '{member.PW}', '{member.member_grade}'"
         self.insert_values('person', columns, values)
 
     def update_data(self, member:Member, member_code):
@@ -60,14 +60,17 @@ class MemberDB(ASAP_DB):
                 del(self.name[member.name])
             else:
                 self.name[member.name].remove(member.member_code)
+        
+            self.delete_values('person', f'member_code="{member.member_code}"')
 
     def init_db(self):
         data = self.get_data('person')
 
         for person in data:
-            name, phone, plicense, img_path, member_code, point, rent_time, return_time, cost, car_acident, is_renting, ID, PW = person
+            name, phone, plicense, img_path, member_code, point, rent_time, return_time, cost, car_acident, is_renting, ID, PW, member_grade= person
             member = Member(name, phone, plicense, img_path)
             member.member_code = member_code
+            member.member_grade = member_grade
             member.point = point
             member.is_renting = is_renting
             member.ID = ID

@@ -1,7 +1,7 @@
 import mysql.connector
 
 class ASAP_DB():
-    def __init__(self, db_name='asap', host='localhost', user='asap', password='1234'):
+    def __init__(self, db_name='asap', host='localhost', user='root', password='1234'):
         self.db_name = db_name
         self.host = host
         self.user = user
@@ -37,9 +37,12 @@ class ASAP_DB():
         for data in result:
             print(data)
 
-    def get_data(self, table_name):
+    def get_data(self, table_name, data='*', condition=None):
         cursor, remote = self.get_cursor()
-        query = f"SELECT * FROM {table_name}"
+        if condition is not None:
+            query = f"SELECT {data} FROM {table_name} WHERE {condition}"
+        else:
+            query = f"SELECT {data} FROM {table_name}"
         cursor.execute(query)
         result = cursor.fetchall()
         remote.commit()

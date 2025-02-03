@@ -12,6 +12,7 @@ class Thread(QThread):
     def run(self):
         while self.isRunning:
             self.data.emit()
+            time.sleep(1)
 
     def stop(self):
         self.running = False

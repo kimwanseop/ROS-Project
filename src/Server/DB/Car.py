@@ -9,12 +9,11 @@ class Car():
         self.pin_number = pin_number
 
         self.battery = 0
-        self.destroied = False
-        self.isrented = False
+        self.destroied = 0
+        self.isrented = 0
 
         self.img_path = img_path
         self.pos = None
-
 
 
 class CarDB(ASAP_DB):
@@ -24,8 +23,15 @@ class CarDB(ASAP_DB):
         self.car_brand = {}
         self.car_name = {}
         self.car_type = {}
+        self.init_db()
 
     def add_car(self, car:Car):
+        self.update_data(car)
+        columns = "car_number, brand, car_name, type, pin_number, destroied, is_rented, img_path"
+        value = f"'{car.car_number}', '{car.brand}', '{car.car_name}', '{car.type}', '{car.pin_number}', '{car.destroied}', '{car.isrented}', '{car.img_path}'"
+        self.insert_values('car', columns, value)
+    
+    def update_data(self, car:Car):
         if car.car_number not in self.car_dict:
             self.car_dict[car.car_number] = car
         
@@ -40,10 +46,7 @@ class CarDB(ASAP_DB):
             if car.type not in self.car_type:
                 self.car_type[car.type] = [car.car_number]
             else:
-                self.car_type[car.type].append(car.car_number)
-
-            value = f"'{car.car_number}', '{car.brand}', '{car.car_name}', '{car.type}', '{car.pin_number}', '{car.battery}', '{car.destroied}', '{car.isrented}'"
-            print('car_info', value)
+                self.car_type[car.type].append(car.car_number)        
         
     def get_stat_info(self, info_type='all'):
         
@@ -69,4 +72,14 @@ class CarDB(ASAP_DB):
             if len(self.car_brand[car.brand])==0:
                 del(self.car_brand[car.brand])
 
+        self.delete_values('car', f'car_number="{car.car_number}"')
+
         
+    def init_db(self):
+        data = self.get_data('car')
+
+        for car in data:
+            car_number, brand, car_name, type, pin_number, destroied, isrented, img_path = car
+            vehicle = Car(brand, car_name, type, car_number, pin_number, img_path)
+            self.update_data(vehicle)
+

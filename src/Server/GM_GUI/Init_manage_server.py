@@ -8,12 +8,13 @@ from PyQt5 import *
 from PyQt5 import uic
 from DB.Car import CarDB
 from DB.Member import MemberDB
+
 # 입력기 환경 변수 설정
 os.environ["GTK_IM_MODULE"] = "fcitx"
 os.environ["QT_IM_MODULE"] = "fcitx"
 os.environ["XMODIFIERS"] = "@im=fcitx"
 os.environ["QT_QPA_PLATFORMTHEME"] = "qt5ct"
-ui_file = "./Server.ui"
+ui_file = "./UI/Server.ui"
 form_class = uic.loadUiType(ui_file)[0]
 
 class CustomerTableModel(QAbstractTableModel):
@@ -90,6 +91,7 @@ class Init_Manage_Server(QMainWindow, form_class):
 
     def initalize(self):
         self.set_member_table()
+        self.init_memberlist()
         self.hide_login()
         self.hide_car()
         self.hide_member_window()
@@ -99,8 +101,14 @@ class Init_Manage_Server(QMainWindow, form_class):
         self.init_logout.hide()
         self.car_scrollArea.setAlignment(Qt.AlignTop | Qt.AlignLeft) 
         self.car_select_info_type.clear()
-        items = ['all', 'brand', 'type']
+        items = ['all', 'brand', 'type', 'name']
         self.car_select_info_type.addItems(items)
+        self.member_select_type.clear()
+        items = ['all', 'name', 'phone', 'member code']
+        self.member_select_type.addItems(items)
+
+        self.map_frame.setPixmap(QPixmap('./Image/map.jpg'))
+        self.init_logo.setPixmap(QPixmap('./Image/ASAP_LOGO_long.jpg'))
         
 
     def set_member_table(self):
@@ -115,12 +123,7 @@ class Init_Manage_Server(QMainWindow, form_class):
                         '랜트 여부',
                         '사고 이력']
         self.table_model = CustomerTableModel(self.table_data, self.headers)
-        self.proxy_model = QSortFilterProxyModel()
-        self.proxy_model.setSourceModel(self.table_model)
-        self.proxy_model.setFilterKeyColumn(-1)  # 모든 열을 필터링 대상으로 설정
-        self.proxy_model.setFilterCaseSensitivity(Qt.CaseInsensitive)  # 대소문자 구분 안 함
-        
-        self.member_widget.setModel(self.proxy_model)
+        self.member_widget.setModel(self.table_model)
         header = self.member_widget.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.Stretch)  # 열을 테이블 너비에 맞게 확장
         self.member_widget.verticalHeader().setVisible(False)
@@ -129,6 +132,10 @@ class Init_Manage_Server(QMainWindow, form_class):
     def show_main_window(self):
         self.hide_login()
         self.init_logo.show()
+        self.car_searchbar.setText('')
+        self.car_select_info_type.setCurrentIndex(0)
+        self.member_searchbar.setText('')
+        self.member_select_type.setCurrentIndex(0)
         if self.is_login==False:
             self.init_login.show()
             self.init_logout.hide()
@@ -156,6 +163,7 @@ class Init_Manage_Server(QMainWindow, form_class):
         self.member_search.hide()
         self.member_register.hide()
         self.member_remove.hide()
+        self.member_select_type.hide()
 
 
     def show_member_window(self):
@@ -166,6 +174,7 @@ class Init_Manage_Server(QMainWindow, form_class):
         self.member_search.show()
         self.member_register.show()
         self.member_remove.show()
+        self.member_select_type.show()
 
     def hide_login(self):
         self.login_bg.hide()
@@ -216,6 +225,11 @@ class Init_Manage_Server(QMainWindow, form_class):
             description.deleteLater()
         self.car_buttons = []
 
+    def init_memberlist(self):
+        self.table_model.data = []
+        for member in self.memdb.member_dict.values():
+            self.member_listup(member)
+
     def member_listup(self, member):
         name = member.name
         phone = member.phone
@@ -245,8 +259,21 @@ class Init_Manage_Server(QMainWindow, form_class):
 
     def apply_filter(self):
         """검색 필터 적용"""
-        search_text = self.member_searchbar.text()
-        self.proxy_model.setFilterFixedString(search_text)
+        search_type = self.member_select_type.currentText()
+        search_text = self.member_searchbar.text().strip()
+        if search_type == 'name':
+            member_codes = sorted(self.memdb.get_data('person', 'member_code', f'name LIKE "%{search_text}%"'))
+        elif search_type == 'phone':
+            member_codes = sorted(self.memdb.get_data('person', 'member_code', f'phone LIKE "%{search_text}%"'))
+        elif search_type == 'member_code':
+            member_codes = sorted(self.memdb.get_data('person', 'member_code', f'member_code LIKE "%{search_text}%"'))  
+        else:
+            member_codes = sorted(self.memdb.get_data('person', 'member_code', f'member_code LIKE "%{search_text}%" OR name LIKE "%{search_text}%" OR phone LIKE "%{search_text}%" OR member_grade LIKE "%{search_text}%" OR car_acident LIKE "%{search_text}%"'))
+            
+        self.table_model.data = []
+        for code in member_codes:
+            member = self.memdb.member_dict[code[0]]
+            self.member_listup(member)
 
     def car_number_listup(self, car_name=None, mode='show'):
         self.car_remove.show()
@@ -283,7 +310,7 @@ class Init_Manage_Server(QMainWindow, form_class):
 
 
             # 설명 생성
-            description = QLabel(f"{car.car_number}  상태 : {rent}")
+            description = QLabel(f"{car.car_number}\n상태 : {rent}")
             description.setStyleSheet("font: 12px; color: black; text-align: center;")
             description.setAlignment(Qt.AlignCenter)
             
@@ -370,7 +397,7 @@ class Init_Manage_Server(QMainWindow, form_class):
             button.clicked.connect(lambda _, n=name: self.car_number_listup(n, mode))
 
             # 설명 생성
-            description = QLabel(f"{name}   잔여량 : {total_num} 대여량 : {rented_num}")
+            description = QLabel(f"{name}\n잔여량 : {total_num} 대여량 : {rented_num}")
             description.setStyleSheet("font: 12px; color: black; text-align: center;")
             description.setAlignment(Qt.AlignCenter)
             
