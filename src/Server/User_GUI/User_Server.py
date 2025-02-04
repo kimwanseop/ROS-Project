@@ -1,9 +1,6 @@
 import os 
 import sys 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import time 
-from multiprocessing import Process
-import threading
 import rclpy
 
 from Thread import Thread, CarThread
