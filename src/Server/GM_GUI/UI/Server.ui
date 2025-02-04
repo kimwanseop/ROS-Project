@@ -171,7 +171,7 @@ font: Bold 14pt &quot;Ubuntu&quot;;</string>
     <string/>
    </property>
    <property name="pixmap">
-    <pixmap>../../../../../../../../../.designer/backup/Image/ASAP_LOGO_long.jpg</pixmap>
+    <pixmap>../../../../../../../../../../../../.designer/backup/Image/ASAP_LOGO_long.jpg</pixmap>
    </property>
    <property name="scaledContents">
     <bool>true</bool>
@@ -779,7 +779,7 @@ font-size: 13px; background-color: white;</string>
      <string/>
     </property>
     <property name="pixmap">
-     <pixmap>../Image/map.jpg</pixmap>
+     <pixmap>../../../../../.designer/Image/map.jpg</pixmap>
     </property>
     <property name="scaledContents">
      <bool>true</bool>

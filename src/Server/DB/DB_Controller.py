@@ -59,6 +59,14 @@ class ASAP_DB():
         cursor.close()
         remote.close()
 
+    def update_values(self, table_name, target, condition):
+        cursor, remote = self.get_cursor()
+        query = f"UPDATE {table_name} SET {target} WHERE {condition}"
+        cursor.execute(query)
+        remote.commit()
+        cursor.close()
+        remote.close()
+        
     def select_values(self, table_name):
         cursor, remote = self.get_cursor()
         query = f"SELECT * FROM {table_name}"

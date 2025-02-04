@@ -5,14 +5,16 @@ from PyQt5.QtCore import QThread, pyqtSignal
 class Thread(QThread):
     data = pyqtSignal()
 
-    def __init__(self, sec=0, parent=None):
+    def __init__(self, sec=0.1, parent=None):
         super().__init__()
         self.main = parent
         self.running = True
+        self.sec = sec
 
     def run(self):
-        while self.isRunning:
+        while self.running:
             self.data.emit()
+            time.sleep(self.sec)
 
     def stop(self):
         self.running = False

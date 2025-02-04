@@ -181,18 +181,15 @@ class User_Server(Init_User_Server):
         self.checkinside.show()
         
     def checking(self):
-        # self.checkinside2 = QDialog()
-        # uic.loadUi('./UI/checking.ui', self.checkinside2)
-        # self.checkinside2.show()
-        
-        # self.checkinside2.close()
         self.is_renting = False
         self.car_thread.stop()
         self.myCar.destroy_node()
+        self.battery_check.stop()
         rclpy.shutdown()
-
+        self.cardb.update_values('car', 'is_rented=0', f'car_number="{str(self.rentcar_number)}"')
         self.close_window('return')
         self.popup_window('main_window')
+        self.rentcar_number = None 
     
     def btn_call_car(self, data=None, info_type='all', mode='show'):
         self.popup_window('select_car')
@@ -208,19 +205,38 @@ class User_Server(Init_User_Server):
         
 
     def renting_car(self):
+        self.cardb.update_values('car', 'is_rented=1', f'car_number="{str(self.rentcar_number)}"')
+
         self.is_renting = True 
         car = self.cardb.car_dict[self.rentcar_number]
         ROS_DOMAIN_ID = car.pin_number
 
         os.environ['ROS_DOMAIN_ID'] = ROS_DOMAIN_ID
-        print(os.environ['ROS_DOMAIN_ID'])
         self.car_thread = CarThread(target=self.running_car)
         self.car_thread.start()
         self.car_thread.running = True
+        self.battery_check.start()
+        self.battery_check.running = True
 
         self.close_window('renting')
         self.popup_window('map')
 
+    def update_battery(self):
+        car = self.cardb.car_dict[self.rentcar_number]
+        if self.myCar.battery == 0:
+            battery = car.battery
+        else:
+            battery = self.myCar.battery
+        if battery == None:
+            battery = 0
+
+        self.cardb.update_values('car', f'battery={battery:.2f}', f'car_number="{str(self.rentcar_number)}"')
+        car.battery = battery
+        self.battery_percent.setText(f'{int(battery)}%')
+        self.battery_percent.setStyleSheet('color: white; font-size: 15px')
+        percent = int(((battery+0.00001)/100)*71)
+        self.battery_green.resize(percent, 31)
+        
 
     def show_rent_window(self, car_number):
         super().show_rent_window(car_number)
@@ -229,6 +245,7 @@ class User_Server(Init_User_Server):
 
         
     def popup_window(self, window_type):
+        self.cardb.init_db()
         self.is_login=True
         if self.is_login or window_type=='main_window' or window_type=='login':
             for key, value in self.WINDOW_TYPES.items():
@@ -320,7 +337,8 @@ class User_Server(Init_User_Server):
             self.myCar.msg.angular.z = 0.
 
     def set_Threads(self):
-        pass        
+        self.battery_check = Thread(sec=1)
+        self.battery_check.data.connect(self.update_battery)
         
     #     self.map_thread = Thread()
     #     self.map_thread.data.connect(self.update_map)

@@ -17,12 +17,13 @@ class Init_User_Server(QMainWindow, form_class):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
+        self.setFixedSize(401, 671)
         self.initalize()
         self.car_buttons = []
         self.WINDOW_TYPES = {
             'main_window': False,
             'map': False,
-            # 'car' : False,
+            'car' : False,
             'select_car' : False,
             'login' : False,
             # 'setting' : False 
@@ -30,14 +31,14 @@ class Init_User_Server(QMainWindow, form_class):
         self.OPEN_WINDOW = {
             'main_window': self.show_main_window,    
             'map':self.show_map_window,        
-            # 'car':self.show_car_window,
+            'car':self.show_car_window,
             'select_car' : self.show_select_car_window,
             'login' : self.show_login_window,
         }
         self.HIDE_WINDOW = {
             'main_window': self.hide_main_window,
             'map':self.hide_map_window,
-            # 'car':self.hide_car_window,        
+            'car':self.hide_car_window,        
             'select_car' : self.hide_select_car_window,
             'login' : self.hide_login_window,
         }
@@ -49,7 +50,7 @@ class Init_User_Server(QMainWindow, form_class):
         self.map_frame.setPixmap(QPixmap("./Images/map.jpg"))
         self.show_main_window() 
         self.hide_map_window()
-        # self.hide_car_window()
+        self.hide_car_window()
         self.hide_select_car_window()
         self.hide_login_window()
         self.car_select_info_type.clear()
@@ -78,6 +79,7 @@ class Init_User_Server(QMainWindow, form_class):
         self.btn_home.show()
 
     def show_select_car_window(self):
+        self.cardb.init_db()
         self.select_car_widget.show()
 
     def hide_select_car_window(self):
@@ -96,22 +98,29 @@ class Init_User_Server(QMainWindow, form_class):
         if self.is_renting:
             self.btn_return.show()
             self.btn_rent.hide()
+            self.battery_bg.show()
+            self.battery_green.show()
+            self.battery_percent.show()
         else:
             self.btn_return.hide()
             self.btn_rent.show()
+            self.battery_bg.hide()
+            self.battery_green.hide()
+            self.battery_percent.hide()
 
     def hide_map_window(self):
         self.map_widget.hide()
 
 
-    # def show_car_window(self):
-    #     self.car_widget.show()
+    def show_car_window(self):
+        self.car_widget.show()
 
-    # def hide_car_window(self):
-    #     self.car_widget.hide()
+    def hide_car_window(self):
+        self.car_widget.hide()
 
 
     def car_number_listup(self, car_name=None, mode='show'):
+        self.cardb.init_db()
         self.btn_back.show()
         self.remove_car_box()
         num_columns = 3 
@@ -139,14 +148,28 @@ class Init_User_Server(QMainWindow, form_class):
                 button.clicked.connect(lambda _, n=car_number: self.on_button_click(n, mode))
             else:
                 button.clicked.connect(lambda _, n=car_number: self.show_rent_window(n))
-            
+
             rent = '대여중' if car.isrented else '대기중'
             rent = '파손' if car.destroied else rent
 
-
             # 설명 생성
-            description = QLabel(f"{car.car_number}\n상태 : {rent}")
-            description.setStyleSheet("font: 12px; color: black; text-align: center;")
+            if car.battery == None:
+                battery = 0
+            else:
+                battery = int(car.battery)
+            description = QLabel(f"{car.car_number}\n상태 : {rent}\n배터리 : {battery}%")
+            if rent == '대여중':
+                button.setEnabled(False)
+                description.setStyleSheet("font: 12px; color: gray; text-align: center;")
+            elif rent == '대기중':
+                button.setEnabled(True)
+                description.setStyleSheet("font: 12px; color: green; text-align: center;")
+            else:
+                button.setEnabled(False)
+                description.setStyleSheet("font: 12px; color: red; text-align: center;")
+            
+            
+            
             description.setAlignment(Qt.AlignCenter)
             
             # 버튼과 설명을 세로로 배치할 레이아웃
@@ -177,6 +200,7 @@ class Init_User_Server(QMainWindow, form_class):
         self.car_buttons = []    
 
     def car_name_listup(self, data=None, info_type='all', mode='show'):
+        self.cardb.init_db()
         self.remove_car_box()
         self.btn_back.hide()
 
@@ -218,7 +242,7 @@ class Init_User_Server(QMainWindow, form_class):
             i = i + 1
             total_num = len(car_name[name])
             rented_num = [self.cardb.car_dict[str(i)].isrented for i in car_name[name]].count(True)
-
+            stay_num = total_num - rented_num
 
             button = QPushButton()
             
@@ -239,7 +263,7 @@ class Init_User_Server(QMainWindow, form_class):
             button.clicked.connect(lambda _, n=name: self.car_number_listup(n, mode))
 
             # 설명 생성
-            description = QLabel(f"{name}\n잔여량 : {total_num} 대여량 : {rented_num}")
+            description = QLabel(f"{name}\n잔여량 : {stay_num} 대여량 : {rented_num}")
             description.setStyleSheet("font: 12px; color: black; text-align: center;")
             description.setAlignment(Qt.AlignCenter)
             

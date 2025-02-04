@@ -276,6 +276,7 @@ class Init_Manage_Server(QMainWindow, form_class):
             self.member_listup(member)
 
     def car_number_listup(self, car_name=None, mode='show'):
+        self.cardb.init_db()
         self.car_remove.show()
         self.car_back.show()
         self.remove_car_box()
@@ -304,16 +305,23 @@ class Init_Manage_Server(QMainWindow, form_class):
                 button.clicked.connect(lambda _, n=car_number: self.on_button_click(n, mode))
             else:
                 button.clicked.connect(lambda _, n=car_number: self.show_cur_pos(n))
+
             
             rent = '대여중' if car.isrented else '대기중'
             rent = '파손' if car.destroied else rent
-
-
-            # 설명 생성
-            description = QLabel(f"{car.car_number}\n상태 : {rent}")
-            description.setStyleSheet("font: 12px; color: black; text-align: center;")
+            if car.battery == None:
+                battery = 0
+            else:
+                battery = int(car.battery)
+            description = QLabel(f"{car.car_number}\n상태 : {rent}  배터리 : {battery}%")
+            if rent == '대여중':
+                description.setStyleSheet("font: 12px; color: gray; text-align: center;")
+            elif rent == '대기중':
+                description.setStyleSheet("font: 12px; color: green; text-align: center;")
+            else:
+                description.setStyleSheet("font: 12px; color: red; text-align: center;")
             description.setAlignment(Qt.AlignCenter)
-            
+
             # 버튼과 설명을 세로로 배치할 레이아웃
             button_with_description = QWidget()
             vbox = QVBoxLayout(button_with_description)
@@ -333,6 +341,7 @@ class Init_Manage_Server(QMainWindow, form_class):
         print(f"Car number : {car.car_number} \nBrand : {car.brand} \nCar name : {car.car_name} \nType : {car.type} \nPin number : {car.pin_number} \nBattery : {car.battery} \nDestroied : {car.destroied} \nIs rented : {car.isrented} \nImage path : {car.img_path} \nPosition : {car.pos}")
     
     def car_name_listup(self, data=None, info_type='all', mode='show'):
+        self.cardb.init_db()
         self.remove_car_box()
 
         self.car_back.hide()
@@ -376,6 +385,7 @@ class Init_Manage_Server(QMainWindow, form_class):
             i = i + 1
             total_num = len(car_name[name])
             rented_num = [self.cardb.car_dict[str(i)].isrented for i in car_name[name]].count(True)
+            stay_num = total_num - rented_num
 
 
             button = QPushButton()
@@ -397,7 +407,7 @@ class Init_Manage_Server(QMainWindow, form_class):
             button.clicked.connect(lambda _, n=name: self.car_number_listup(n, mode))
 
             # 설명 생성
-            description = QLabel(f"{name}\n잔여량 : {total_num} 대여량 : {rented_num}")
+            description = QLabel(f"{name}\n잔여량 : {stay_num} 대여량 : {rented_num}")
             description.setStyleSheet("font: 12px; color: black; text-align: center;")
             description.setAlignment(Qt.AlignCenter)
             

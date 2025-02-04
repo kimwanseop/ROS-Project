@@ -53,6 +53,8 @@ class Manage_Server(Init_Manage_Server, form_class):
         
 
     def show_type_info(self):
+        self.cardb.init_db()
+
         try:
             typei = self.car_select_info_type.currentText().strip()
             name = self.car_searchbar.text()
@@ -93,6 +95,7 @@ class Manage_Server(Init_Manage_Server, form_class):
 
         
     def popup_window(self, window_type):
+        self.cardb.init_db()
         # self.is_login=True
         if self.is_login or window_type=='login' or window_type=='main_window':
         
@@ -148,11 +151,12 @@ class Manage_Server(Init_Manage_Server, form_class):
     def set_Threads(self):
         self.login_inpw.textChanged.connect(self.input_password)
 
-        self.map_thread = Thread()
+        self.map_thread = Thread(sec=1)
         self.map_thread.data.connect(self.update_map)
 
     def update_map(self):
         # map_frame = 
+        self.cardb.init_db()
         total = len(self.cardb.car_dict)
         len_stay = 0
         len_rent = 0
@@ -280,6 +284,8 @@ class Manage_Server(Init_Manage_Server, form_class):
 
 
     def add_car_register(self):
+        self.cardb.init_db()
+
         car_number = self.add_carWindow.add_number.text().strip()
         brand = self.add_carWindow.add_brand.text().strip()
         car_name = self.add_carWindow.add_name.text().strip()
@@ -305,9 +311,7 @@ class Manage_Server(Init_Manage_Server, form_class):
             self.add_carWindow.add_image_frame.clear()
 
             self.add_carWindow.close()
-    '''
-    123가 3245 소형
-    '''
+
 
     def input_password(self): 
         text = self.login_inpw.text()
@@ -326,33 +330,6 @@ class Manage_Server(Init_Manage_Server, form_class):
                 self.password = self.password[:-1]
             self.before_len = length
 
-
-    # def input_password(self): 
-    #     text = self.login_inpw.text()
-    #     length = len(text)
-
-    #     if length == 0:
-    #         return
-        
-    #     if length != self.before_len:
-    #         self.login_inpw.setText('*'*(length-1) + text[-1])
-    #         self.password += text[-1]
-    #         self.before_len = length
-
-    #     if self.enter:
-    #         self.enter = False
-    #         id = self.login_inid.text()
-
-    #         if self.password == '1234' and id == 'admin':
-    #             self.is_login = True
-    #             self.popup_window("main_window")
-    #         else:
-    #             self.loginWindow.show()
-
-    #         self.password = ''
-    #         self.before_len = 0
-    #         self.login_inid.setText('')
-    #         self.login_inpw.setText('')
 
 ################################################################################################
 

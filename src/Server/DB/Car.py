@@ -27,8 +27,8 @@ class CarDB(ASAP_DB):
 
     def add_car(self, car:Car):
         self.update_data(car)
-        columns = "car_number, brand, car_name, type, pin_number, destroied, is_rented, img_path"
-        value = f"'{car.car_number}', '{car.brand}', '{car.car_name}', '{car.type}', '{car.pin_number}', '{car.destroied}', '{car.isrented}', '{car.img_path}'"
+        columns = "car_number, brand, car_name, type, pin_number, destroied, is_rented, img_path, battery"
+        value = f"'{car.car_number}', '{car.brand}', '{car.car_name}', '{car.type}', '{car.pin_number}', '{car.destroied}', '{car.isrented}', '{car.img_path}', '{car.battery}'"
         self.insert_values('car', columns, value)
     
     def update_data(self, car:Car):
@@ -49,16 +49,23 @@ class CarDB(ASAP_DB):
                 self.car_type[car.type].append(car.car_number)        
         
     def get_stat_info(self, info_type='all'):
-        
+        data = {}
         if info_type == 'all':
-            data = self.car_name
+            cars = self.get_data('car', 'car_number, car_name')
         elif info_type == 'brand':
-            data = self.car_brand
+            cars = self.get_data('car', 'car_number, brand')
         elif info_type == 'type':
-            data = self.car_type
+            cars = self.get_data('car', 'car_number, type')
         else:
             return Exception('Invalid info_type')
-
+        
+        for car in cars:
+            key = car[1]
+            value = car[0]
+            if key not in data.keys():
+                data[key] = [value]
+            else:
+                data[key].append(value)
 
         return data, self.car_name
 
@@ -76,10 +83,17 @@ class CarDB(ASAP_DB):
 
         
     def init_db(self):
+        self.car_dict = {}
+        self.car_brand = {}
+        self.car_name = {}
+        self.car_type = {}
         data = self.get_data('car')
 
         for car in data:
-            car_number, brand, car_name, type, pin_number, destroied, isrented, img_path = car
+            car_number, brand, car_name, type, pin_number, destroied, isrented, img_path, battery = car
             vehicle = Car(brand, car_name, type, car_number, pin_number, img_path)
+            vehicle.destroied = destroied
+            vehicle.isrented = isrented
+            vehicle.battery = battery
             self.update_data(vehicle)
 
