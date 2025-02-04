@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float32
+from geometry_msgs.msg import PoseStamped
 
 class MyCar(Node):
     def __init__(self):
@@ -9,6 +10,8 @@ class MyCar(Node):
         self.publisher = self.create_publisher(Twist, '/cmd_vel', 10)
         self.timer = self.create_timer(0.1, self.timer_callback)
         self.subscriber = self.create_subscription(Float32, '/pinky_battery_present', self.battery_callback, 10)
+        self.create_subscription(PoseStamped, '/tracked_pose', self.pose_callback, 10)
+
         self.msg = Twist()
         self.battery = 0
         self.pos = None
@@ -18,6 +21,9 @@ class MyCar(Node):
 
     def battery_callback(self, msg):
         self.battery = msg.data
+
+    def pose_callback(self, msg):
+        self.pos = msg
 
 def main(args=None):
     rclpy.init(args=args)

@@ -22,6 +22,9 @@ class User_Server(Init_User_Server):
         self.init_parameters()
         self.init_btns()
         self.set_Threads()
+        img_path = os.path.dirname(os.path.abspath(__file__)) + '/Images/map.jpg'
+        self.pixmap = QPixmap(img_path)
+        self.map_w, self.map_h = self.pixmap.width(), self.pixmap.height()
 
     def init_parameters(self):
         self.popup_window('main_window')
@@ -182,6 +185,7 @@ class User_Server(Init_User_Server):
         self.car_thread.stop()
         self.myCar.destroy_node()
         self.battery_check.stop()
+        self.map_thread.stop()
         rclpy.shutdown()
         self.cardb.update_values('car', 'is_rented=0', f'car_number="{str(self.rentcar_number)}"')
         self.close_window('return')
@@ -214,18 +218,23 @@ class User_Server(Init_User_Server):
         self.car_thread.running = True
         self.battery_check.start()
         self.battery_check.running = True
+        self.map_thread.start()
+        self.map_thread.running = True
 
         self.close_window('renting')
         self.popup_window('map')
 
     def update_battery(self):
         car = self.cardb.car_dict[self.rentcar_number]
-        if self.myCar.battery == 0:
-            battery = car.battery
-        else:
-            battery = self.myCar.battery
-        if battery == None:
-            battery = 0
+        try:
+            if self.myCar.battery == 0:
+                battery = car.battery
+            else:
+                battery = self.myCar.battery
+            if battery == None:
+                battery = 0
+        except:
+            return
 
         self.cardb.update_values('car', f'battery={battery:.2f}', f'car_number="{str(self.rentcar_number)}"')
         car.battery = battery
@@ -311,6 +320,7 @@ class User_Server(Init_User_Server):
         angular_z = 1.
         if event.key() == Qt.Key_W:
             self.myCar.msg.linear.x = linear_x
+            self.myCar.msg.angular.z = 0.
         elif event.key() == Qt.Key_Q:
             self.myCar.msg.linear.x = linear_x
             self.myCar.msg.angular.z = angular_z
@@ -319,6 +329,7 @@ class User_Server(Init_User_Server):
             self.myCar.msg.angular.z = -angular_z
         elif event.key() == Qt.Key_X:
             self.myCar.msg.linear.x = -linear_x
+            self.myCar.msg.angular.z = 0.
         elif event.key() == Qt.Key_Z:
             self.myCar.msg.linear.x = -linear_x
             self.myCar.msg.angular.z = -angular_z
@@ -334,29 +345,34 @@ class User_Server(Init_User_Server):
             self.myCar.msg.angular.z = 0.
 
     def set_Threads(self):
-        self.battery_check = Thread(sec=1)
+        self.battery_check = Thread(sec=3)
         self.battery_check.data.connect(self.update_battery)
         
-    #     self.map_thread = Thread()
-    #     self.map_thread.data.connect(self.update_map)
+        self.map_thread = Thread(sec=0.5)
+        self.map_thread.data.connect(self.update_map)
 
-    # def update_map(self):
-    #     # map_frame = 
-    #     total = len(self.cardb.car_dict)
-    #     len_stay = 0
-    #     len_rent = 0
-    #     len_destroid = 0
+    def update_map(self):
+        try:
+            origin_x, origin_y = 215, 306
+            px, py = 0.84, 0.94
+            data = self.myCar.pos 
+            position = data.pose.position 
+            orientation = data.pose.orientation
+            pos_x, pos_y = position.x, position.y
+            self.cardb.update_values('car', f'pos="{pos_x}, {pos_y}"', f'car_number="{str(self.rentcar_number)}"')
+            pos_x = int((px + pos_x-0.1)*100 * (self.map_w/origin_x))
+            pos_y = int((origin_y - (py + pos_y)*100) * (self.map_h/origin_y))
 
-    #     for car in self.cardb.car_dict.values():
-    #         if car.isrented == 1:
-    #             len_rent += 1
-    #         if car.destroied == 1:
-    #             len_destroid += 1
-    #     len_stay = total - len_rent - len_destroid
+            self.map_frame.setPixmap(self.pixmap)
+            painter = QPainter(self.map_frame.pixmap())
+            painter.setPen(QPen(Qt.red, 5))
+            painter.setBrush(QBrush(Qt.red))
+            painter.drawEllipse(pos_x, pos_y, 100, 100)
+            painter.end()
+        except:
+            pass
 
-    #     self.map_stay.setText(str(len_stay))
-    #     self.map_rent.setText(str(len_rent))
-    #     self.map_destroid.setText(str(len_destroid))
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)    

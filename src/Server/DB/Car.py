@@ -13,7 +13,7 @@ class Car():
         self.isrented = 0
 
         self.img_path = img_path
-        self.pos = None
+        self.pos = '0, 0'
 
 
 class CarDB(ASAP_DB):
@@ -27,8 +27,8 @@ class CarDB(ASAP_DB):
 
     def add_car(self, car:Car):
         self.update_data(car)
-        columns = "car_number, brand, car_name, type, pin_number, destroied, is_rented, img_path, battery"
-        value = f"'{car.car_number}', '{car.brand}', '{car.car_name}', '{car.type}', '{car.pin_number}', '{car.destroied}', '{car.isrented}', '{car.img_path}', '{car.battery}'"
+        columns = "car_number, brand, car_name, type, pin_number, destroied, is_rented, img_path, battery, pos"
+        value = f"'{car.car_number}', '{car.brand}', '{car.car_name}', '{car.type}', '{car.pin_number}', '{car.destroied}', '{car.isrented}', '{car.img_path}', '{car.battery}', '{car.pos}'"
         self.insert_values('car', columns, value)
     
     def update_data(self, car:Car):
@@ -90,10 +90,14 @@ class CarDB(ASAP_DB):
         data = self.get_data('car')
 
         for car in data:
-            car_number, brand, car_name, type, pin_number, destroied, isrented, img_path, battery = car
+            car_number, brand, car_name, type, pin_number, destroied, isrented, img_path, battery, pos = car
             vehicle = Car(brand, car_name, type, car_number, pin_number, img_path)
             vehicle.destroied = destroied
             vehicle.isrented = isrented
             vehicle.battery = battery
+            if pos==None:
+                vehicle.pos = '0, 0'
+            else:
+                vehicle.pos = pos
             self.update_data(vehicle)
 

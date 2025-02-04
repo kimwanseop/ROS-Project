@@ -171,7 +171,7 @@ font: Bold 14pt &quot;Ubuntu&quot;;</string>
     <string/>
    </property>
    <property name="pixmap">
-    <pixmap>../../../../../../../../../../../../.designer/backup/Image/ASAP_LOGO_long.jpg</pixmap>
+    <pixmap>../../../../../../../../../../../../../../../.designer/backup/Image/ASAP_LOGO_long.jpg</pixmap>
    </property>
    <property name="scaledContents">
     <bool>true</bool>
@@ -779,7 +779,7 @@ font-size: 13px; background-color: white;</string>
      <string/>
     </property>
     <property name="pixmap">
-     <pixmap>../../../../../.designer/Image/map.jpg</pixmap>
+     <pixmap>../../../../../../../../.designer/Image/map.jpg</pixmap>
     </property>
     <property name="scaledContents">
      <bool>true</bool>
@@ -948,12 +948,6 @@ background-color: rgb(12, 121, 122);</string>
   <zorder>car_delete</zorder>
   <zorder>car_back</zorder>
   <zorder>car_select_info_type</zorder>
-  <zorder>RT_loc_info</zorder>
-  <zorder>Setting</zorder>
-  <zorder>Static</zorder>
-  <zorder>Manage_member</zorder>
-  <zorder>Manage_Log</zorder>
-  <zorder>Manage_car</zorder>
   <zorder>member_bg</zorder>
   <zorder>member_register</zorder>
   <zorder>member_remove</zorder>
@@ -963,6 +957,12 @@ background-color: rgb(12, 121, 122);</string>
   <zorder>member_select_type</zorder>
   <zorder>member_searchbar</zorder>
   <zorder>map_widget</zorder>
+  <zorder>Manage_member</zorder>
+  <zorder>Setting</zorder>
+  <zorder>Manage_Log</zorder>
+  <zorder>RT_loc_info</zorder>
+  <zorder>Manage_car</zorder>
+  <zorder>Static</zorder>
  </widget>
  <resources/>
  <connections/>

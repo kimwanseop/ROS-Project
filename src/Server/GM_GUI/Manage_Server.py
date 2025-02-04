@@ -26,6 +26,9 @@ class Manage_Server(Init_Manage_Server, form_class):
         self.set_Threads()
         self.button_tools()
         self.init_uic()
+        img_path = os.path.dirname(os.path.abspath(__file__)) + '/Image/map.jpg'
+        self.pixmap = QPixmap(img_path)
+        self.map_w, self.map_h = self.pixmap.width(), self.pixmap.height()
 
 # Main Window 관련
 ################################################################################################
@@ -96,7 +99,7 @@ class Manage_Server(Init_Manage_Server, form_class):
         
     def popup_window(self, window_type):
         self.cardb.init_db()
-        # self.is_login=True
+        self.is_login=True
         if self.is_login or window_type=='login' or window_type=='main_window':
         
             for key, value in self.WINDOW_TYPES.items():
@@ -157,6 +160,29 @@ class Manage_Server(Init_Manage_Server, form_class):
     def update_map(self):
         # map_frame = 
         self.cardb.init_db()
+        car_informations = self.cardb.get_data('car', 'car_number, pos', 'is_rented=1')
+        self.map_frame.setPixmap(self.pixmap)
+        try:
+            origin_x, origin_y = 215, 306
+            px, py = 0.84, 0.94
+            
+            painter = QPainter(self.map_frame.pixmap())
+            for car_info in car_informations:
+                car_number, pos = car_info
+                pos = pos.split(',')
+                pos_x, pos_y = float(pos[0]), float(pos[1])
+
+                pos_x = int((px + pos_x-0.1)*100 * (self.map_h/origin_x))
+                pos_y = int(((py + pos_y-0.08)*100) * (self.map_w/origin_y))
+                pos_x, pos_y = pos_y, pos_x
+                print(pos_x, pos_y)
+                painter.setPen(QPen(Qt.red, 5))
+                painter.setBrush(QBrush(Qt.red))
+                painter.drawEllipse(pos_x, pos_y, 100, 100)
+            painter.end()
+        except:
+            pass
+
         total = len(self.cardb.car_dict)
         len_stay = 0
         len_rent = 0

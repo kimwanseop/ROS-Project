@@ -47,6 +47,7 @@ class Init_User_Server(QMainWindow, form_class):
     
     def initalize(self):
         self.is_login=False 
+        self.is_renting = False
         self.map_frame.setPixmap(QPixmap("./Images/map.jpg"))
         self.show_main_window() 
         self.hide_map_window()
@@ -56,7 +57,6 @@ class Init_User_Server(QMainWindow, form_class):
         self.car_select_info_type.clear()
         items = ['all', 'brand', 'type', 'name']
         self.car_select_info_type.addItems(items)
-        self.is_renting = False
 
     def show_main_window(self):
         self.start_widget.show()
@@ -93,6 +93,7 @@ class Init_User_Server(QMainWindow, form_class):
         self.btn_home.show()
     
     def show_map_window(self):
+        self.map_frame.setPixmap(QPixmap("./Images/map.jpg"))
         self.map_widget.show()
         self.btn_home.show()
         if self.is_renting:
@@ -101,6 +102,7 @@ class Init_User_Server(QMainWindow, form_class):
             self.battery_bg.show()
             self.battery_green.show()
             self.battery_percent.show()
+            # self.map_thread.start()
         else:
             self.btn_return.hide()
             self.btn_rent.show()
@@ -110,7 +112,8 @@ class Init_User_Server(QMainWindow, form_class):
 
     def hide_map_window(self):
         self.map_widget.hide()
-
+        # if self.is_renting:
+        #     self.map_thread.stop()
 
     def show_car_window(self):
         self.car_widget.show()

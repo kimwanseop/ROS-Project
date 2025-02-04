@@ -656,10 +656,10 @@ border-radius: 5px;</string>
   <zorder>start_widget</zorder>
   <zorder>select_car_widget</zorder>
   <zorder>login_widget</zorder>
-  <zorder>map_widget</zorder>
   <zorder>car_widget</zorder>
-  <zorder>btn_logout</zorder>
+  <zorder>map_widget</zorder>
   <zorder>btn_home</zorder>
+  <zorder>btn_logout</zorder>
  </widget>
  <resources/>
  <connections/>
