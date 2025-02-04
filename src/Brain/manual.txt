@@ -1,0 +1,9 @@
+** Manual **
+
+1. img_sender.py: transfers frames by UDP Socket on Pinky
+
+2. udp_receiver.py: get the frames by the Socket and publish steering angle values by ROS2 Topic.
+
+3. test_model.py: able to test AI models for pre-recorded videos. (requirements.txt attached)
+
+		you can install this by >> $ pip install -r requirements.txt
