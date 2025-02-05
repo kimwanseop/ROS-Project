@@ -1,235 +1,240 @@
+import rclpy
+from rclpy.node import Node
+from rclpy.executors import MultiThreadedExecutor
+from central_msg.srv import Choosepath, Obstacle, Redlight
+from std_msgs.msg import String
+from ultralytics import YOLO
+from std_msgs.msg import Float32MultiArray
+from scipy.special import binom
+from matplotlib.patches import Polygon
+import time
+import socket
 import cv2
 import numpy as np
-from ultralytics import YOLO
-import torch 
-import torch.nn as nn
-import logging
-import gc
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-from matplotlib.patches import Polygon
-from scipy.special import binom
+import torch
+from central_msg.msg import Slope
+import struct
 import math
+import gc
+# import matplotlib
+# matplotlib.use('Qt5Agg')  # 또는 'Qt5Agg'
 
-# YOLO verbose False 적용
-logging.getLogger("ultralytics").setLevel(logging.ERROR)
 
-
-
-"""
-| AI Server |
-VideoProcessor
-Conversion
-Centroid
-GetIntersection
-"""
-
-"""
-To get 'slope coef',
-you should import pursuit and use VideoProcessor object cuz it returns slope parameters.
-"""
-class Conversion:
-    def __init__(self, w_res, h_res, inch):
-        self.__w_res = w_res
-        self.__h_res = h_res
-        self.__inch = inch
-
-        self.__PPI = np.sqrt(np.power(self.__w_res, 2)+np.power(self.__h_res, 2))/self.__inch
-        
-        self.x = 0
-        self.y = 0
-
-    def p2cm(self):
-        return  2.54 / self.__PPI
-
-class VideoProcessor:
-    def __init__(self, video_path, seg_model, det_model):
-        self.video_path = video_path
-
+class UdpReceiverNode(Node):
+    def __init__(self, seg_model, det_model):
+        super().__init__('udp_receiver_node')
         self.seg_model = seg_model
         self.det_model = det_model
+        self.prev_redlight_status = False
 
+        self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.udp_socket.bind(("192.168.100.8", 8080))
+        self.get_logger().info("Socket bound to 192.168.100.8:8080")
+
+        self.sign_subscriber = self.create_subscription(String, "/sign", self.sign_callback, 10)
+        self.publisher = self.create_publisher(Slope, "/slope", 10)
+        self.signal_publisher = self.create_publisher(String, "/signal", 10)
+
+        self.execute_timer = self.create_timer(0.033, self.receive_and_command)
+
+        self.srv_choosepath = self.create_service(Choosepath, "/pinky1/choosepath", self.choosepath_callback)
+        self.srv_obstacle = self.create_service(Obstacle, "/pinky1/obstacle", self.obstacle_callback)
+        self.srv_redlight = self.create_service(Redlight, "/pinky1/redlight", self.red_callback)
+        
+        self.__x, self.__y, self.__w, self.__h = 0, 400, 640, 240
+
+        self.prev_mask = None
         self.unit = Conversion(1920, 1080, 16.1)
         self.center = Centroid()
-        self.car_position = np.array([320, 940])
         self.lookahead_distance = 60
+        self.frame = None
 
-        self.__x, self.__y, self.__w, self.__h = 0, 400, 640, 200
+        self.choosepath = False
+        self.obstacle = False   
+        self.redlight = False
 
-        self.frame_skip = 7  # 5배속
-        self.frame_count = 0
-        
+        self.go_left = False
+
+        self.car_position = np.array([320, 940])
         self.prev_slope = 0.0
 
-    def process_video(self):
-        cap = cv2.VideoCapture(self.video_path)
-        
-        if not cap.isOpened():
-            print("Error: Couldn't open the video file.")
-            exit()
+    def choosepath_callback(self, request, response):
+        self.get_logger().info(f"path: {request.is_left}")
+        response.go_left = self.choosepath
+        return response
 
-        plt.ion()
-        fig, ax = plt.subplots(figsize=(6,6))
+    def obstacle_callback(self,request, response):
+        self.get_logger().info(f"obstacle: {request.is_obstacle}")
+        response.avoid = self.obstacle
+        return response
 
-        ax.set_xlim(0, 640)
-        ax.set_ylim(1000, 0)
+    def red_callback(self, request, response):
+        self.get_logger().info(f"red: {request.is_red}")
+        response.stop = self.redlight
+        return response
 
-        fps = cap.get(cv2.CAP_PROP_FPS)
+    def sign_callback(self, msg):
+        if msg.data == "left":
+            self.go_left = True
+        if msg.data == "right":
+            self.go_left = False
 
-        while True:
-            
-            ret, frame = cap.read()
-            frame = cv2.rotate(frame, cv2.ROTATE_180)
-            
-            if not ret:
-                print("Error: Couldn't read a frame.")
-                break
-            
-            self.frame_count += 1
-            if self.frame_count % self.frame_skip != 0:
-                continue
+    def receive_and_command(self):
+        try:
+            data, addr = self.udp_socket.recvfrom(65536)
+            # self.get_logger().info(f"Received data from {addr}")
+            np_array = np.frombuffer(data, dtype=np.uint8)
 
-            frame_resized = cv2.resize(frame, (640, 640))
-            
-            self.ROI = frame_resized[self.__y:self.__y+self.__h, self.__x:self.__x+self.__w]
-            
-            seg_results = self.seg_model.predict(frame_resized)
-            det_results = self.det_model.predict(frame_resized)
+            self.frame = cv2.imdecode(np_array, cv2.IMREAD_COLOR)
 
-            if det_results:
+            self.frame = cv2.rotate(self.frame, cv2.ROTATE_180)
+            self.frame = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB)
+
+            if self.frame is not None:
+                frame_resized = cv2.resize(self.frame, (640, 640))
+
+                self.ROI = frame_resized[self.__y:self.__y+self.__h, self.__x:self.__x+self.__w]
+
+                seg_results = self.seg_model.predict(frame_resized)
+                det_results = self.det_model.predict(frame_resized)
+                
+                """ object detection process """
+                if det_results:
                     for det_result in det_results:
                     
                         classes = det_result.boxes.cls.cpu().numpy()
                         boxes = det_result.boxes.xyxy.cpu().numpy()  # (x_min, y_min, x_max, y_max)
                         
-                        for cls_id in classes:
-                            object = self.det_model.names[int(cls_id)]
-                            print(f"Object: {object}")
-                            for box in boxes:
-                                if len(box) == 4:  # (x, y, w, h) 형식이 맞는지 확인
-                                    x, y, w, h = box
-                                    # 값들을 정수형으로 변환
-                                    x, y, w, h = int(x), int(y), int(w), int(h)
-                                    cv2.rectangle(frame_resized, (x, y), (w, h), (0, 255, 0), 2)  # 초록색, 두께 2
-                                else:
-                                    print(f"잘못된 박스 좌표 형식: {box}")
-                            pass
+                        for cls_id, box in zip(classes, boxes):
+                            for cls_id in classes:
+                                object = self.det_model.names[int(cls_id)]
+                                # self.get_logger().info(f"object: {object}, box: {box}")
+                                sign = String()
+                                sign.data = object
+                                if self.prev_redlight_status:
+                                    pass
+                                if object == "crossing" and box[1] > 550:
+                                    self.signal_publisher.publish(sign)
+                                elif object == "human" or object == "obstacle" or object == "goat":
+                                    self.obstacle = True
+                                    self.signal_publisher.publish(sign)
+                                elif object == "red light":
+                                    self.redlight = True
+                                    if self.prev_redlight_status == False:
+                                        self.signal_publisher.publish(sign)
+                                    self.prev_redlight_status = True
+                                elif object == "green light":
+                                    self.signal_publisher.publish(sign)
+                                    self.redlight = False
+                                    self.prev_redlight_status = False
+                else:
+                    self.choosepath = False
+                    self.obstacle = False
+                    self.redlight = False
+                    sign = String()
+                    sign = "fine"
+                    self.signal_publisher.publish(sign)
+                                
 
-            for seg_result in seg_results:
+                """ segmentation process """
+                for seg_result in seg_results:
                     
                     classes = seg_result.boxes.cls.cpu().numpy() #cls_id = {0: center, 1: right, 2: left, 7: safety zone}
                     masks = seg_result.masks.xy if seg_result.masks else None
 
                     if masks != None:
-                        prev_masks = masks
-                        """ classes = [cls_id[0], cls_id[1], cls_id[2], ... ]
-                            masks = [mask[0], mask[1], mask[2], ... ]
-                                    mask[0] = [[20.2, 428.5], [167.0, 39.4], [420.7, 350.9], ...] (polygon)"""
-
+                        self.prev_masks = masks
+                        # center_list = []
                         for cls_id, mask in zip(classes, masks):
                             if cls_id == 0:
-                                if mask[np.argmax(mask[:,1])][1] <= self.__y:
-                                    print(f"mask_y: {mask[np.argmax(mask[:,1])][1]}")
-                                    print(f"ROI_y: {self.__y}")
-                                    continue
-                                else:
-                                    self.destination = mask
+                                # center_list.append(mask)     
+                                self.destination = mask
                                 
-                    elif prev_masks:
-                                for cls_id, mask in zip(classes, prev_masks):
-                                    if cls_id == 0:
-                                        if mask[np.argmax(mask[:,1])][1] <= self.__y:
-                                            print(f"mask_y: {mask[np.argmax(mask[:,1])][1]}")
-                                            print(f"ROI_y: {self.__y}")
-                                            continue
-                                        else:
-                                            self.destination = mask
+                    elif self.prev_masks:
+                        # center_list = []
+                        for cls_id, mask in zip(classes, self.prev_masks):
+                            if cls_id == 0:
+                                # center_list.append(mask)
+                                self.destination = mask
 
-                    self.center.get_centroid(self.destination)                    
 
-                    annotated_frame = seg_results[0].plot(boxes=False)
-                  
+                    # if len(center_list) > 1:
+                    #     for i in range(len(center_list)-1):
+                    #         curr_center = Centroid()
+                    #         curr_center.get_centroid(center_list[i])
+                    #         if prev_center.centroid_x > curr_center.centroid_x:
+                    #             self.destination = prev_center
+                    #         else:
+                    #             self.destination = curr_center
+                    #             almost_left = curr_center
+
+
+                    # else:
+                    #     self.destination = center_list[0]
+
+                    self.center.get_centroid(self.destination)
+
             processor = PurePursuit(self.destination, self.lookahead_distance)
+            
             lookahead_distance, self.bezier_points = processor.get_bezier_points(self.car_position, (self.center.centroid_x, self.center.centroid_y))
+
             bezier_path = processor.bezier_curve(self.bezier_points)
             lookahead_point = processor.find_lookahead_point(bezier_path, self.car_position, lookahead_distance)
-
+            # print(f"lookahead_point: {lookahead_point}")
             
             slope = self.get_slope(lookahead_point)
             try:
                 if math.copysign(1,slope) != math.copysign(1,self.prev_slope) and np.abs(slope - self.prev_slope) > 10:
-                    print("<이상값 감지>")
-                    print(f"보정 전 slope: {slope:.3f} deg")
-                    print(f"보정 후 slope: {self.prev_slope:.3f} deg")
+                    # print("<이상값 감지>")
+                    # print(f"보정 전 slope: {slope:.3f} deg")
+                    # print(f"보정 후 slope: {self.prev_slope:.3f} deg")
+                    print(f"*****({slope})*****")
                     slope = self.prev_slope
-                    print("-------------")
+                    # print("-------------")
                 else:
                     print(f"slope: {slope:.3f} deg")
                     self.prev_slope = slope
             except:
                 print("Prev_slope doesnt exist.")
+            
+            msg = Slope()
+
+            msg.curr_slope = slope
+            msg.target_slope = 0.0
+            msg.diff = 0.0 - slope
+
+            # print(msg.curr_slope, msg.target_slope, msg.diff)
+            # self.get_logger().info(f"Publishing: {msg.curr_slope}, {msg.target_slope}, {msg.diff}")
+
+            self.publisher.publish(msg)
 
             
-
-            ax.clear()
-            polygon = Polygon(self.destination, closed=True, edgecolor='r', facecolor='none', linewidth=1, label="Lane Edge")
-            ax.add_patch(polygon)
-            ax.plot(bezier_path[:, 0], bezier_path[:, 1], 'g-', label="Bezier Curve")
-
-            if det_results:
-                for box in boxes:
-                                if len(box) == 4:  # (x, y, w, h) 형식이 맞는지 확인
-                                    x, y, w, h = box
-                                    # 값들을 정수형으로 변환
-                                    x, y, w, h = int(x), int(y), int(w), int(h)
-                                    rect = patches.Rectangle((x, y), w, h, linewidth=1, edgecolor='g', facecolor='none')  # 초록색 선, 투명한 내부
-                                    ax.add_patch(rect)
-                                else:
-                                    print(f"잘못된 박스 좌표 형식: {box}")
-            
-            ax.scatter(*zip(*self.bezier_points), color='blue', label="Control Points")
-            ax.scatter(*lookahead_point, color='purple', s=100, label="Lookahead Point")
-            # print(f"Lookahead Point: {lookahead_point}")                
-
-            ax.invert_yaxis()
-            ax.set_xlim(0, 640)
-            ax.set_ylim(1000, 0)
-            ax.set_aspect('equal')
-            ax.legend()
-            
-            plt.draw()
-            plt.pause(0.1)
-            cv2.imshow('center_pursuit', annotated_frame)
-            
-            delay = int(50/ fps) # original fps
-            
-            del frame
-            gc.collect()
-
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-
-        cap.release()
-        cv2.destroyAllWindows()
-        plt.ioff()
-        plt.show()
-
+        except Exception as e:
+            self.get_logger().error(f"Error receiving or displaying image: {e}")
+        
     def get_slope(self, lookahead_point):
         x1, y1 = self.car_position
         x2, y2 = lookahead_point
 
-        delta_y = y1 - y2 
+        delta_y = y1 - y2
         delta_x = x1 - x2
 
         desired_angle = math.atan2(delta_x, delta_y)
 
-        vehicle_angle = 0 
+        vehicle_angle = 0
 
         steering_angle = desired_angle - vehicle_angle
 
         steering_angle = math.degrees((steering_angle + math.pi) % (2 * math.pi) - math.pi)
 
         return steering_angle
+
+    
+    def destroy_node(self):
+        self.udp_socket.close()
+        cv2.destroyAllWindows()
+        self.get_logger().info("UDP Receiver Node stopped")
+        super().destroy_node()
 
 class PurePursuit():
     def __init__(self, lane_polygon, lookahead_distance):
@@ -246,9 +251,12 @@ class PurePursuit():
 
         if dist > 0:
             trans_polygon[:, 1] += int(dist)
+
+            
         else:
             trans_polygon[:, 1] -= int(dist)
-
+        
+        
         if 0 <= np.abs(dist) <= 100:
             """ dist가 100이면 lah_d+=50
                 dist가 50이면 lah_d+=100
@@ -274,7 +282,7 @@ class PurePursuit():
             mid_control1 = (car_position[0]-(car_position[0] - centroid[0]) / 3, 1000 - ((car_position[1] - centroid[1]) * 5 / 10))
             mid_control2 = (car_position[0]-(car_position[0] - centroid[0]) * 2 / 3, 1000- ((car_position[1] - centroid[1]) * 8 / 10))
             return (self.lookahead_distance, (car_position, mid_control1, mid_control2, centroid)) 
-
+            
 
     def bezier_curve(self, bezier_points, num_points=100):
         n = len(bezier_points) - 1
@@ -296,6 +304,19 @@ class PurePursuit():
         idx = np.argmin(np.abs(arr - value))
         return arr[idx]
 
+class Conversion:
+    def __init__(self, w_res, h_res, inch):
+        self.__w_res = w_res
+        self.__h_res = h_res
+        self.__inch = inch
+
+        self.__PPI = np.sqrt(np.power(self.__w_res, 2)+np.power(self.__h_res, 2))/self.__inch
+        
+        self.x = 0
+        self.y = 0
+
+    def p2cm(self):
+        return  2.54 / self.__PPI
 
 class Centroid():
     def __init__(self):
@@ -319,13 +340,27 @@ class Centroid():
             self.centroid_y /= (6 * area)
 
 
+
+def main(args=None):
+    seg_checkpoint_path = '/root/asap/data/best.pt'
+    det_checkpoint_path = '/root/asap/data/best_det.pt'
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"Using device: {device}")
+
+    seg_model = YOLO(seg_checkpoint_path, verbose=False).to(device)
+    det_model = YOLO(det_checkpoint_path, verbose=False).to(device)
+
+    rclpy.init(args=args)
+    node = UdpReceiverNode(seg_model, det_model)
+    
+    executor = MultiThreadedExecutor()
+    executor.add_node(node)
+    executor.spin()
+
+    node.destroy_node()
+    rclpy.shutdown()
+
+
 if __name__ == "__main__":
-    video_path = './src/ellipse_intersection/video_output6.mp4' #'/home/ms/ws/git_ws/ComputerVision/src/ellipse_intersection/video_output6.mp4'
-    seg_path = '/home/ms/Downloads/best.pt'
-    det_path = '/home/ms/Downloads/det_best2.pt'
-
-    seg_model = YOLO(seg_path, verbose=False)
-    det_model = YOLO(det_path, verbose=False)
-
-    processor = VideoProcessor(video_path, seg_model, det_model)
-    processor.process_video()
+    main()
