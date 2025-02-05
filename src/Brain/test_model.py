@@ -6,6 +6,7 @@ import torch.nn as nn
 import logging
 import gc
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 from matplotlib.patches import Polygon
 from scipy.special import binom
 import math
@@ -53,9 +54,12 @@ class VideoProcessor:
         self.car_position = np.array([320, 940])
         self.lookahead_distance = 60
 
+        self.__x, self.__y, self.__w, self.__h = 0, 400, 640, 200
 
-        self.frame_skip = 5  # 5배속
+        self.frame_skip = 7  # 5배속
         self.frame_count = 0
+        
+        self.prev_slope = 0.0
 
     def process_video(self):
         cap = cv2.VideoCapture(self.video_path)
@@ -87,6 +91,8 @@ class VideoProcessor:
 
             frame_resized = cv2.resize(frame, (640, 640))
             
+            self.ROI = frame_resized[self.__y:self.__y+self.__h, self.__x:self.__x+self.__w]
+            
             seg_results = self.seg_model.predict(frame_resized)
             det_results = self.det_model.predict(frame_resized)
 
@@ -97,7 +103,17 @@ class VideoProcessor:
                         boxes = det_result.boxes.xyxy.cpu().numpy()  # (x_min, y_min, x_max, y_max)
                         
                         for cls_id in classes:
-                            print(f"Object: {self.det_model.names[int(cls_id)]}")
+                            object = self.det_model.names[int(cls_id)]
+                            print(f"Object: {object}")
+                            for box in boxes:
+                                if len(box) == 4:  # (x, y, w, h) 형식이 맞는지 확인
+                                    x, y, w, h = box
+                                    # 값들을 정수형으로 변환
+                                    x, y, w, h = int(x), int(y), int(w), int(h)
+                                    cv2.rectangle(frame_resized, (x, y), (w, h), (0, 255, 0), 2)  # 초록색, 두께 2
+                                else:
+                                    print(f"잘못된 박스 좌표 형식: {box}")
+                            pass
 
             for seg_result in seg_results:
                     
@@ -112,30 +128,65 @@ class VideoProcessor:
 
                         for cls_id, mask in zip(classes, masks):
                             if cls_id == 0:
-                                    # print(f"Class: {self.model.names[int(cls_id)]}")
+                                if mask[np.argmax(mask[:,1])][1] <= self.__y:
+                                    print(f"mask_y: {mask[np.argmax(mask[:,1])][1]}")
+                                    print(f"ROI_y: {self.__y}")
+                                    continue
+                                else:
                                     self.destination = mask
                                 
                     elif prev_masks:
                                 for cls_id, mask in zip(classes, prev_masks):
                                     if cls_id == 0:
-                                        self.destination = mask
-
+                                        if mask[np.argmax(mask[:,1])][1] <= self.__y:
+                                            print(f"mask_y: {mask[np.argmax(mask[:,1])][1]}")
+                                            print(f"ROI_y: {self.__y}")
+                                            continue
+                                        else:
+                                            self.destination = mask
 
                     self.center.get_centroid(self.destination)                    
 
                     annotated_frame = seg_results[0].plot(boxes=False)
-                    
+                  
             processor = PurePursuit(self.destination, self.lookahead_distance)
             lookahead_distance, self.bezier_points = processor.get_bezier_points(self.car_position, (self.center.centroid_x, self.center.centroid_y))
             bezier_path = processor.bezier_curve(self.bezier_points)
             lookahead_point = processor.find_lookahead_point(bezier_path, self.car_position, lookahead_distance)
+
+            
             slope = self.get_slope(lookahead_point)
-            print(f"slope: {slope:.3f} deg")
+            try:
+                if math.copysign(1,slope) != math.copysign(1,self.prev_slope) and np.abs(slope - self.prev_slope) > 10:
+                    print("<이상값 감지>")
+                    print(f"보정 전 slope: {slope:.3f} deg")
+                    print(f"보정 후 slope: {self.prev_slope:.3f} deg")
+                    slope = self.prev_slope
+                    print("-------------")
+                else:
+                    print(f"slope: {slope:.3f} deg")
+                    self.prev_slope = slope
+            except:
+                print("Prev_slope doesnt exist.")
+
+            
 
             ax.clear()
             polygon = Polygon(self.destination, closed=True, edgecolor='r', facecolor='none', linewidth=1, label="Lane Edge")
             ax.add_patch(polygon)
             ax.plot(bezier_path[:, 0], bezier_path[:, 1], 'g-', label="Bezier Curve")
+
+            if det_results:
+                for box in boxes:
+                                if len(box) == 4:  # (x, y, w, h) 형식이 맞는지 확인
+                                    x, y, w, h = box
+                                    # 값들을 정수형으로 변환
+                                    x, y, w, h = int(x), int(y), int(w), int(h)
+                                    rect = patches.Rectangle((x, y), w, h, linewidth=1, edgecolor='g', facecolor='none')  # 초록색 선, 투명한 내부
+                                    ax.add_patch(rect)
+                                else:
+                                    print(f"잘못된 박스 좌표 형식: {box}")
+            
             ax.scatter(*zip(*self.bezier_points), color='blue', label="Control Points")
             ax.scatter(*lookahead_point, color='purple', s=100, label="Lookahead Point")
             # print(f"Lookahead Point: {lookahead_point}")                
@@ -269,9 +320,9 @@ class Centroid():
 
 
 if __name__ == "__main__":
-    video_path = './video_output6.mp4' #'/home/ms/ws/git_ws/ComputerVision/src/ellipse_intersection/video_output6.mp4'
+    video_path = './src/ellipse_intersection/video_output6.mp4' #'/home/ms/ws/git_ws/ComputerVision/src/ellipse_intersection/video_output6.mp4'
     seg_path = '/home/ms/Downloads/best.pt'
-    det_path = '/home/ms/Downloads/best_det.pt'
+    det_path = '/home/ms/Downloads/det_best2.pt'
 
     seg_model = YOLO(seg_path, verbose=False)
     det_model = YOLO(det_path, verbose=False)
