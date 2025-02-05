@@ -26,6 +26,7 @@ class UdpReceiverNode(Node):
         self.seg_model = seg_model
         self.det_model = det_model
         self.prev_redlight_status = False
+        self.prev_obstacle_status = False
 
         self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.udp_socket.bind(("192.168.100.8", 8080))
@@ -34,7 +35,8 @@ class UdpReceiverNode(Node):
         self.sign_subscriber = self.create_subscription(String, "/sign", self.sign_callback, 10)
         self.publisher = self.create_publisher(Slope, "/slope", 10)
         self.signal_publisher = self.create_publisher(String, "/signal", 10)
-
+        
+        # self.avoid_timer = self.create_timer(0.033, self.avoid)
         self.execute_timer = self.create_timer(0.033, self.receive_and_command)
 
         self.srv_choosepath = self.create_service(Choosepath, "/pinky1/choosepath", self.choosepath_callback)
@@ -54,9 +56,12 @@ class UdpReceiverNode(Node):
         self.redlight = False
 
         self.go_left = False
+        self.child_protect = False
+        self.prev_child_protect = False
 
         self.car_position = np.array([320, 940])
         self.prev_slope = 0.0
+        self.slow_cnt = 0
 
     def choosepath_callback(self, request, response):
         self.get_logger().info(f"path: {request.is_left}")
@@ -98,8 +103,20 @@ class UdpReceiverNode(Node):
                 seg_results = self.seg_model.predict(frame_resized)
                 det_results = self.det_model.predict(frame_resized)
                 
+                # self.get_logger().info(det_results)
                 """ object detection process """
+                
                 if det_results:
+                    if self.redlight == False and (self.obstacle == True or self.child_protect == True):
+                        self.slow_cnt += 1
+
+                    if self.slow_cnt >= 200 and (self.obstacle == False or self.child_protect == False):
+                        self.avoid = False
+                        self.slow_cnt = 0
+                        sign = String()
+                        sign.data = "green light"
+                        self.signal_publisher.publish(sign)
+
                     for det_result in det_results:
                     
                         classes = det_result.boxes.cls.cpu().numpy()
@@ -111,28 +128,68 @@ class UdpReceiverNode(Node):
                                 # self.get_logger().info(f"object: {object}, box: {box}")
                                 sign = String()
                                 sign.data = object
-                                if self.prev_redlight_status:
-                                    pass
-                                if object == "crossing" and box[1] > 550:
-                                    self.signal_publisher.publish(sign)
-                                elif object == "human" or object == "obstacle" or object == "goat":
-                                    self.obstacle = True
-                                    self.signal_publisher.publish(sign)
-                                elif object == "red light":
+
+                                if object == "red light" and 250 < box[3] < 300 and abs(box[3]-box[1]) > 150:
+                                    # self.get_logger().info(f"red light size: ((b[0]: {box[0]}, b[1]: {box[1]}, b[2]: {box[2]}, b[3]: {box[3]})")
                                     self.redlight = True
                                     if self.prev_redlight_status == False:
                                         self.signal_publisher.publish(sign)
                                     self.prev_redlight_status = True
+
+                                if object == "crossing" and box[1] > 550:
+                                    # self.get_logger().info(f"crossing size: ((b[0]: {box[0]}, b[1]: {box[1]}, b[2]: {box[2]}, b[3]: {box[3]})")
+                                    if self.redlight != True:
+                                        if self.prev_obstacle_status == False:
+                                            # self.obstacle = True
+                                            self.signal_publisher.publish(sign)
+                                            # self.prev_obstacle_status = True
+
+                                elif object in ["human", "obstacle", "goat"] and (420 < box[3] < 640) and (abs(box[3] - box[1]) > 150) and (250. < np.mean([box[2],box[0]]) < 390.):
+                                    self.get_logger().info(f"self.object: {object}, {box}")
+                                    if self.redlight != True:
+                                        self.obstacle = True
+                                        if self.prev_obstacle_status == False:
+                                            if object == "human":
+                                                self.get_logger().info(f"human size: (b[0]: {box[0]}, b[1]: {box[1]}, b[2]: {box[2]}, b[3]: {box[3]})")
+                                                
+                                            if object == "obstacle":
+                                                self.get_logger().info(f"car size: ((b[0]: {box[0]}, b[1]: {box[1]}, b[2]: {box[2]}, b[3]: {box[3]})")
+                                                
+                                            if object == "goat":
+                                                self.get_logger().info(f"goat size: ((b[0]: {box[0]}, b[1]: {box[1]}, b[2]: {box[2]}, b[3]: {box[3]})")
+                                        
+                                            self.signal_publisher.publish(sign)
+                                            self.prev_obstacle_status = True
+                                    else:
+                                        return
+                                            
+                                elif object == "child protect" and 250 < box[3] < 300 and abs(box[3]-box[1]) > 60:
+                                    # self.get_logger().info(f"child protect size: ((b[0]: {box[0]}, b[1]: {box[1]}, b[2]: {box[2]}, b[3]: {box[3]})")
+                                    if self.redlight != True:
+                                        self.signal_publisher.publish(sign)
+                                        if self.prev_child_protect == False:
+                                            self.child_protect = True
+                                            self.prev_child_protect = True
+
+                                elif object == "100KM":
+                                    # self.get_logger().info(f"100KM size: ((b[0]: {box[0]}, b[1]: {box[1]}, b[2]: {box[2]}, b[3]: {box[3]})")
+                                    if self.redlight != True and self.child_protect:
+                                        self.prev_child_protect = False
+                                        self.child_protect = False
+                                        self.signal_publisher.publish(sign)
+
                                 elif object == "green light":
-                                    self.signal_publisher.publish(sign)
                                     self.redlight = False
-                                    self.prev_redlight_status = False
+                                    self.get_logger().info(f"green light size: ({box}, self.redlight: {self.redlight}, self.obstacle: {self.obstacle}")
+                                    if self.obstacle != True:
+                                        self.signal_publisher.publish(sign)
+                                        self.prev_redlight_status = False
                 else:
                     self.choosepath = False
                     self.obstacle = False
-                    self.redlight = False
                     sign = String()
                     sign = "fine"
+                    self.get_logger().info(f"lets go, I'm {sign}!")
                     self.signal_publisher.publish(sign)
                                 
 
@@ -144,33 +201,24 @@ class UdpReceiverNode(Node):
 
                     if masks != None:
                         self.prev_masks = masks
-                        # center_list = []
                         for cls_id, mask in zip(classes, masks):
-                            if cls_id == 0:
-                                # center_list.append(mask)     
+                            if self.obstacle and cls_id ==2:
+                                self.get_logger().info(f"avoiding obstacle... {self.seg_model.names[int(cls_id)]}")
+                                self.avoid = True
+                                self.destination = mask
+
+                            elif cls_id == 0:
                                 self.destination = mask
                                 
                     elif self.prev_masks:
-                        # center_list = []
                         for cls_id, mask in zip(classes, self.prev_masks):
-                            if cls_id == 0:
-                                # center_list.append(mask)
+                            if self.obstacle and cls_id ==2:
+                                self.get_logger().info(f"avoiding obstacle... {self.seg_model.names[int(cls_id)]}")
+                                self.avoid = True
                                 self.destination = mask
 
-
-                    # if len(center_list) > 1:
-                    #     for i in range(len(center_list)-1):
-                    #         curr_center = Centroid()
-                    #         curr_center.get_centroid(center_list[i])
-                    #         if prev_center.centroid_x > curr_center.centroid_x:
-                    #             self.destination = prev_center
-                    #         else:
-                    #             self.destination = curr_center
-                    #             almost_left = curr_center
-
-
-                    # else:
-                    #     self.destination = center_list[0]
+                            elif cls_id == 0:
+                                self.destination = mask
 
                     self.center.get_centroid(self.destination)
 
@@ -343,7 +391,7 @@ class Centroid():
 
 def main(args=None):
     seg_checkpoint_path = '/root/asap/data/best.pt'
-    det_checkpoint_path = '/root/asap/data/best_det.pt'
+    det_checkpoint_path = '/root/asap/data/det_best2.pt'
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
