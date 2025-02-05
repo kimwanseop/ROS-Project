@@ -1,76 +1,59 @@
-import time 
-import threading
-import rclpy as rp 
-import matplotlib.pyplot as plt
-import cv2
-from rclpy.node import Node 
-from geometry_msgs.msg import Twist
-from std_msgs.msg import Float32
-from geometry_msgs.msg import PoseStamped
+from PyQt5 import QtWidgets, uic
+from PyQt5.QtWidgets import QDialog, QLabel, QApplication
+from PyQt5.QtGui import QPixmap, QMouseEvent
+from PyQt5.QtCore import Qt
+import sys
 
+class ClickableLabel(QLabel):
+    """ 클릭 이벤트가 감지되는 QLabel 클래스 """
+    def __init__(self, parent=None):
+        super().__init__(parent)
 
-class MyNode(Node):
+    def mousePressEvent(self, event: QMouseEvent):
+        """ 마우스 클릭 이벤트 처리 """
+        if event.button() == Qt.LeftButton:  # 왼쪽 버튼 클릭 시
+            x, y = event.x(), event.y()  # 클릭한 위치 가져오기
+            self.setText(f"클릭 위치: ({x}, {y})")  # QLabel에 좌표 표시
+            print(f"클릭한 위치: ({x}, {y})")  # 터미널에도 출력
+
+class PositionDialog(QDialog):
+    """ QDialog 기반의 위치 선택 창 """
     def __init__(self):
-        super().__init__('mycar_publisher')
-        self.create_subscription(PoseStamped, '/tracked_pose', self.battery_callback, 10)
-        self.msg = None 
-
-    def battery_callback(self, msg):
-        self.msg = msg
-
-class CarThread(threading.Thread):
-    def __init__(self, target):
         super().__init__()
-        self.target_function = target  
-        self.running = True
+        uic.loadUi('./UI/select_position.ui', self)  # UI 파일 로드
 
-    def run(self):
-        while self.running: 
-            self.target_function() 
+        # 🔥 QLabel(map)이 정상적으로 로드되었는지 확인 (오류 방지)
+        self.map = self.findChild(QLabel, "map")  # QLabel 찾기
+        if self.map is None:
+            print("❌ QLabel(map)을 찾을 수 없습니다!")
+            return
 
-    def stop(self):
-        self.running = False 
+        # 기존 QLabel을 ClickableLabel로 변경
+        self.layout().removeWidget(self.map)  # 기존 QLabel 제거
+        self.map.deleteLater()  # 메모리에서 제거
+        self.map = ClickableLabel(self)  # 새로운 QLabel 생성
+        self.layout().addWidget(self.map)  # 다시 추가
 
-class Run_Node():
-    def __init__(self):
-        self.img = cv2.imread('/root/ros-repo-3/src/Server/DB/map/asap_map_resized.pgm')
-        self.mynode = MyNode()
-        print(self.mynode.msg)
+        self.btn_call.clicked.connect(self.renting_car)
+        self.btn_cancel.clicked.connect(self.close_dialog)
 
-    def run_node(self):
-        rp.spin(self.mynode)
+        # QLabel에 이미지 추가
+        self.pixmap = QPixmap("your_image.png")  # 이미지 경로 설정
+        self.map.setPixmap(self.pixmap)
 
-    def start_thread(self):
-        self.mythread = threading.Thread(target=self.run_node)
-        self.mythread.start()
+    def renting_car(self):
+        """ 차 호출 기능 (예제용) """
+        print("렌트카 호출 버튼 클릭됨")
 
-    def run(self):
+    def close_dialog(self):
+        """ 다이얼로그 닫기 """
+        self.close()
 
-        while True:
-            try:
-                position = self.mynode.msg.pose.position 
-                orientation = self.mynode.msg.pose.orientation
-                pos_x, pos_y = position.x, position.y
-                print(f"pos_x : {pos_x} pos_y : {pos_y}")
-                cv2.circle(self.img, (pos_x*100, pos_y*100), 10, (0, 0, 255), -1)
-                cv2.imshow('img', self.img)
-                plt.imswhow('img', self.img)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
-            except:
-                pass
-            time.sleep(1)
-
-def main(args=None):
-    rp.init()
-    run_node = Run_Node()
-    run_node.start_thread()
-    run_node.run()
-    run_node.mynode.destroy_node()
-    rp.shutdown()
+def main():
+    app = QApplication(sys.argv)
+    window = PositionDialog()
+    window.show()
+    sys.exit(app.exec_())
 
 if __name__ == '__main__':
     main()
-
-
-

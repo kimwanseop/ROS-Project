@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>400</width>
-    <height>676</height>
+    <height>722</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -19,7 +19,7 @@
      <x>0</x>
      <y>0</y>
      <width>401</width>
-     <height>671</height>
+     <height>721</height>
     </rect>
    </property>
    <property name="styleSheet">
@@ -35,14 +35,14 @@
      <x>10</x>
      <y>10</y>
      <width>381</width>
-     <height>591</height>
+     <height>631</height>
     </rect>
    </property>
    <widget class="QLabel" name="map">
     <property name="geometry">
      <rect>
       <x>0</x>
-      <y>50</y>
+      <y>80</y>
       <width>381</width>
       <height>541</height>
      </rect>
@@ -61,9 +61,9 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>-1</y>
+      <y>-10</y>
       <width>361</width>
-      <height>41</height>
+      <height>51</height>
      </rect>
     </property>
     <property name="styleSheet">
@@ -77,13 +77,95 @@ color: white;</string>
      <set>Qt::AlignCenter</set>
     </property>
    </widget>
+   <widget class="QLabel" name="pos_x">
+    <property name="geometry">
+     <rect>
+      <x>105</x>
+      <y>40</y>
+      <width>70</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: white; border-radius: 5px; font: bold 15px;</string>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QLabel" name="pos_y">
+    <property name="geometry">
+     <rect>
+      <x>220</x>
+      <y>40</y>
+      <width>70</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: white; border-radius: 5px; font: bold 15px;</string>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QLabel" name="pos_x_2">
+    <property name="geometry">
+     <rect>
+      <x>75</x>
+      <y>40</y>
+      <width>31</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">border-radius: 5px; font: bold 16px; color: white;</string>
+    </property>
+    <property name="text">
+     <string>X : </string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QLabel" name="pos_x_3">
+    <property name="geometry">
+     <rect>
+      <x>190</x>
+      <y>40</y>
+      <width>31</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">border-radius: 5px; font: bold 16px; color: white;</string>
+    </property>
+    <property name="text">
+     <string>Y : </string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
+    </property>
+   </widget>
+   <zorder>label_2</zorder>
+   <zorder>pos_x</zorder>
+   <zorder>pos_y</zorder>
+   <zorder>pos_x_2</zorder>
+   <zorder>pos_x_3</zorder>
+   <zorder>map</zorder>
   </widget>
   <widget class="QPushButton" name="btn_call">
    <property name="geometry">
     <rect>
-     <x>80</x>
-     <y>610</y>
-     <width>101</width>
+     <x>30</x>
+     <y>650</y>
+     <width>161</width>
      <height>51</height>
     </rect>
    </property>
@@ -108,9 +190,9 @@ button.setStyleSheet(
   <widget class="QPushButton" name="btn_cancel">
    <property name="geometry">
     <rect>
-     <x>200</x>
-     <y>610</y>
-     <width>101</width>
+     <x>210</x>
+     <y>650</y>
+     <width>161</width>
      <height>51</height>
     </rect>
    </property>

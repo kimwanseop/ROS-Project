@@ -14,17 +14,50 @@ from DB.Car import Car
 from DB.Member import Member
 from Control_CAR import MyCar
 
+from PyQt5.QtWidgets import QLabel
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QMouseEvent
+
+
+class GetPosition(QDialog):
+    def __init__(self, pixmap=None):
+        super().__init__()
+        self.pixmap = pixmap
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            real_x, real_y = event.x(), event.y()
+            x, y = real_x-10 , real_y-90
+            if x<0 or y<0:
+                x, y = '', ''
+            elif x>391 or y>631:
+                x, y = '', ''
+            
+            self.pos_x.setText(str(x))
+            self.pos_y.setText(str(y))
+            self.map.setPixmap(self.pixmap)
+
+            if not(x=='' or y==''):
+                k = 7.445
+                painter = QPainter(self.map.pixmap())
+                painter.setPen(QPen(Qt.red, 5))
+                painter.setBrush(QBrush(Qt.red))
+                painter.drawEllipse(int((x-8)*k), int((y-5)*k), 100, 100)
+            
+                    
 
 class User_Server(Init_User_Server):
     def __init__(self):
         super().__init__()
+
+        img_path = os.path.dirname(os.path.abspath(__file__)) + '/Images/map.jpg'
+        self.pixmap = QPixmap(img_path)
+        self.map_w, self.map_h = self.pixmap.width(), self.pixmap.height()
+
         self.init_uic()
         self.init_parameters()
         self.init_btns()
         self.set_Threads()
-        img_path = os.path.dirname(os.path.abspath(__file__)) + '/Images/map.jpg'
-        self.pixmap = QPixmap(img_path)
-        self.map_w, self.map_h = self.pixmap.width(), self.pixmap.height()
 
     def init_parameters(self):
         self.popup_window('main_window')
@@ -32,6 +65,7 @@ class User_Server(Init_User_Server):
         self.passwords = {}
         self.password = ''
         self.before_len = 0
+        self.x, self.y = None, None
         
         
     def init_btns(self):
@@ -130,9 +164,14 @@ class User_Server(Init_User_Server):
 
         self.renting_window = QDialog()
         uic.loadUi('./UI/rurent.ui', self.renting_window)
-        self.renting_window.btn_ok.clicked.connect(self.renting_car)
+        self.renting_window.btn_ok.clicked.connect(self.select_position)
         self.renting_window.btn_cancel.clicked.connect(lambda: self.close_window('renting'))
 
+        self.position_window = GetPosition(self.pixmap)
+        self.position_window.setFixedSize(401, 721)
+        uic.loadUi('./UI/select_position.ui', self.position_window)
+        self.position_window.btn_call.clicked.connect(self.renting_car)
+        self.position_window.btn_cancel.clicked.connect(lambda: self.close_window('position'))
 
 
     def close_window(self, dialog):
@@ -145,7 +184,6 @@ class User_Server(Init_User_Server):
             self.register_window.name.setText('')
             self.register_window.phone.setText('')
             self.register_window.license.setText('')
-            self.register_window.img_path.setText('')
             self.register_window.close()
         elif dialog=='alert':
             self.add_alert.close()
@@ -157,6 +195,12 @@ class User_Server(Init_User_Server):
             self.loginWindow.close()
         elif dialog=='renting':
             self.renting_window.close()
+        elif dialog=='position':
+            self.position_window.close()
+            self.position_window.pos_x.setText('')
+            self.position_window.pos_y.setText('')
+            self.position_window.map.setPixmap(self.pixmap)
+
 
     def add_img(self):
         img_path = QFileDialog.getOpenFileName(self, 'Open file', './', 'Image files (*.jpg *.png)')[0]
@@ -176,6 +220,11 @@ class User_Server(Init_User_Server):
         self.register_2.show()
         self.btn_logout.hide()        
         self.popup_window('main_window')
+
+    def select_position(self):
+        self.position_window.show()
+        self.close_window('renting')
+    
 
     def checking_inside(self):
         self.checkinside.show()
@@ -206,6 +255,10 @@ class User_Server(Init_User_Server):
         
 
     def renting_car(self):
+        self.close_window('position')
+        
+
+        
         self.cardb.update_values('car', 'is_rented=1', f'car_number="{str(self.rentcar_number)}"')
 
         self.is_renting = True 
@@ -343,6 +396,7 @@ class User_Server(Init_User_Server):
         elif event.key() == Qt.Key_S:
             self.myCar.msg.linear.x = 0.
             self.myCar.msg.angular.z = 0.
+        
 
     def set_Threads(self):
         self.battery_check = Thread(sec=3)
