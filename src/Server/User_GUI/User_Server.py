@@ -192,7 +192,7 @@ class User_Server(Init_User_Server):
         elif dialog=='id_alert':
             self.id_alert.close()
         elif dialog=='login':
-            self.loginWindow.close()
+            self.loginWindow.close()   
         elif dialog=='renting':
             self.renting_window.close()
         elif dialog=='position':
