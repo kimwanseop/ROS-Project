@@ -9,20 +9,20 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5 import *
 from PyQt5 import uic
+from PyQt5.QtCore import Qt
+
 from Init_user_server import Init_User_Server
 from DB.Car import Car
 from DB.Member import Member
 from Control_CAR import MyCar
-
-from PyQt5.QtWidgets import QLabel
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QMouseEvent
+from PathPlanner import PathPlanning
 
 
 class GetPosition(QDialog):
     def __init__(self, pixmap=None):
         super().__init__()
         self.pixmap = pixmap
+        self.p_x, self.p_y = None, None
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -39,6 +39,7 @@ class GetPosition(QDialog):
 
             if not(x=='' or y==''):
                 k = 7.445
+                self.p_x, self.p_y = x, y
                 painter = QPainter(self.map.pixmap())
                 painter.setPen(QPen(Qt.red, 5))
                 painter.setBrush(QBrush(Qt.red))
@@ -65,8 +66,10 @@ class User_Server(Init_User_Server):
         self.passwords = {}
         self.password = ''
         self.before_len = 0
-        self.x, self.y = None, None
-        
+        self.origin_x, self.origin_y = 215, 306
+        self.pathplanner = PathPlanning()
+        self.goal_x, self.goal_y = None, None,
+        self.all_path, self.waypoints = None, None
         
     def init_btns(self):
         self.btn_return.clicked.connect(self.checking_inside)
@@ -200,6 +203,8 @@ class User_Server(Init_User_Server):
             self.position_window.pos_x.setText('')
             self.position_window.pos_y.setText('')
             self.position_window.map.setPixmap(self.pixmap)
+            self.position_window.p_x = None
+            self.position_window.p_y = None
 
 
     def add_img(self):
@@ -224,7 +229,6 @@ class User_Server(Init_User_Server):
     def select_position(self):
         self.position_window.show()
         self.close_window('renting')
-    
 
     def checking_inside(self):
         self.checkinside.show()
@@ -235,11 +239,12 @@ class User_Server(Init_User_Server):
         self.myCar.destroy_node()
         self.battery_check.stop()
         self.map_thread.stop()
-        rclpy.shutdown()
         self.cardb.update_values('car', 'is_rented=0', f'car_number="{str(self.rentcar_number)}"')
+        rclpy.shutdown()
         self.close_window('return')
         self.popup_window('main_window')
         self.rentcar_number = None 
+        self.all_path, self.waypoints = None, None
     
     def btn_call_car(self, data=None, info_type='all', mode='show'):
         self.popup_window('select_car')
@@ -250,18 +255,25 @@ class User_Server(Init_User_Server):
             rclpy.init()
         except:
             pass
+
         self.myCar = MyCar()
         rclpy.spin(self.myCar)
         
 
     def renting_car(self):
-        self.close_window('position')
-        
-
-        
-        self.cardb.update_values('car', 'is_rented=1', f'car_number="{str(self.rentcar_number)}"')
-
         self.is_renting = True 
+        goal_x, goal_y = self.position_window.p_x, self.position_window.p_y
+        w, h = self.position_window.map.width(), self.position_window.map.height()
+        self.goal_x = goal_x*(self.origin_x/w)
+        self.goal_y = goal_y*(self.origin_y/h)
+        
+
+        self.close_window('position')        
+
+        self.cardb.update_values('car', 'is_rented=1', f'car_number="{str(self.rentcar_number)}"')
+        self.close_window('renting')
+        self.popup_window('map')
+
         car = self.cardb.car_dict[self.rentcar_number]
         ROS_DOMAIN_ID = car.pin_number
 
@@ -274,8 +286,6 @@ class User_Server(Init_User_Server):
         self.map_thread.start()
         self.map_thread.running = True
 
-        self.close_window('renting')
-        self.popup_window('map')
 
     def update_battery(self):
         car = self.cardb.car_dict[self.rentcar_number]
@@ -407,21 +417,54 @@ class User_Server(Init_User_Server):
 
     def update_map(self):
         try:
-            origin_x, origin_y = 215, 306
             px, py = 0.84, 0.94
             data = self.myCar.pos 
             position = data.pose.position 
             orientation = data.pose.orientation
             pos_x, pos_y = position.x, position.y
+            
             self.cardb.update_values('car', f'pos="{pos_x}, {pos_y}"', f'car_number="{str(self.rentcar_number)}"')
-            pos_x = int((px + pos_x-0.1)*100 * (self.map_w/origin_x))
-            pos_y = int((origin_y - (py + pos_y)*100) * (self.map_h/origin_y))
+            pos_x = (px + pos_x-0.1)*100
+            pos_y = (self.origin_y - (py + pos_y)*100)
+            plan_x, plan_y = int(pos_x*(183/self.origin_x))+5, int(pos_y*(270/self.origin_y))
+            print('pos :', plan_x, plan_y)
+            if self.all_path is None or self.waypoints is None:
+                self.all_path, self.waypoints = self.pathplanner.generate_waypoint((plan_x, plan_y), (self.goal_x, self.goal_y))
+            pos_x = int(pos_x * (self.map_w/self.origin_x))
+            pos_y = int(pos_y * (self.map_h/self.origin_y))
+            goal_x = int((self.goal_x-4) * (self.map_w/self.origin_x))
+            goal_y = int((self.goal_y-5) * (self.map_h/self.origin_y))
 
             self.map_frame.setPixmap(self.pixmap)
             painter = QPainter(self.map_frame.pixmap())
             painter.setPen(QPen(Qt.red, 5))
             painter.setBrush(QBrush(Qt.red))
             painter.drawEllipse(pos_x, pos_y, 100, 100)
+            painter.setPen(QPen(Qt.blue, 5))
+            painter.setBrush(QBrush(Qt.blue))
+            # painter.drawEllipse(pos_x, pos_y, 100, 100)
+            painter.drawEllipse(goal_x, goal_y, 100, 100)
+
+            # painter.setPen(QPen(Qt.green, 5))
+            # painter.setBrush(QBrush(Qt.green))
+            # painter.drawLine(pos_x, pos_y, goal_x, goal_y)
+            for i in range(len(self.all_path)-1):
+                painter.setPen(QPen(Qt.green, 20))
+                painter.setBrush(QBrush(Qt.green))
+                cur_points = self.all_path[i]
+                next_points = self.all_path[i+1]
+                cur_x, cur_y = cur_points
+                # cur_x, cur_y = cur_x + 16, cur_y + 18
+                next_x, next_y = next_points
+                # next_x, next_y = next_x + 16, next_y + 18
+                origin_x = 184
+                origin_y = 270
+                cur_x = int((cur_x) * (-0.2 + self.map_w/origin_x))
+                cur_y = int((cur_y-2) * (0.6+self.map_h/origin_y))
+                next_x = int((next_x) * (-0.2 + self.map_w/origin_x))
+                next_y = int((next_y-2) * (0.6+self.map_h/origin_y))
+                painter.drawLine(cur_y, cur_x, next_y, next_x)
+
             painter.end()
         except:
             pass
