@@ -45,6 +45,8 @@ class Conversion:
 class VideoProcessor:
     def __init__(self, video_path, seg_model, det_model):
         self.video_path = video_path
+        self.central_x = 320
+        self.central_y = 640
 
         self.seg_model = seg_model
         self.det_model = det_model
@@ -54,7 +56,7 @@ class VideoProcessor:
         self.car_position = np.array([320, 940])
         self.lookahead_distance = 60
 
-        self.__x, self.__y, self.__w, self.__h = 0, 400, 640, 200
+        self.__x, self.__y, self.__w, self.__h = 0, 400, 640, 240
 
         self.frame_skip = 7  # 5배속
         self.frame_count = 0
@@ -91,8 +93,39 @@ class VideoProcessor:
 
             frame_resized = cv2.resize(frame, (640, 640))
             
-            self.ROI = frame_resized[self.__y:self.__y+self.__h, self.__x:self.__x+self.__w]
+            self.ROI = frame_resized[500 : 640, 0 : 640]
             
+            hsv = cv2.cvtColor(self.ROI, cv2.COLOR_BGR2HSV)
+
+            lower_yellow = np.array([20, 100, 100])
+            upper_yellow = np.array([30, 255, 255])
+            mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
+
+            kernel = np.ones((5, 5), np.uint8)
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+
+            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+            if contours:
+                largest_contour = max(contours, key=cv2.contourArea)  # 가장 큰 윤곽선 선택
+                M = cv2.moments(largest_contour)
+                
+                if M["m00"] != 0:  # 무게중심이 존재하는 경우
+                    cx_roi = int(M["m10"] / M["m00"])  # ROI 내부 X 중심 좌표
+                    cy_roi = int(M["m01"] / M["m00"])  # ROI 내부 Y 중심 좌표
+
+                    # ROI 내부 좌표를 원본 이미지 좌표로 변환
+                    self.central_x = cx_roi + self.__x
+                    self.central_y = cy_roi + self.__y
+                    
+                    print(f"노란색 중앙 좌표: ({self.central_x}, {self.central_y})")
+
+                else:
+                    print("ROI 내에서 무게중심을 찾을 수 없음")
+            else:
+                print("ROI 내에 황색 선이 검출되지 않음")
+
             seg_results = self.seg_model.predict(frame_resized)
             det_results = self.det_model.predict(frame_resized)
 
@@ -101,19 +134,20 @@ class VideoProcessor:
                     
                         classes = det_result.boxes.cls.cpu().numpy()
                         boxes = det_result.boxes.xyxy.cpu().numpy()  # (x_min, y_min, x_max, y_max)
+                        confidences = det_result.boxes.conf.cpu().numpy()
                         
-                        for cls_id in classes:
+                        for cls_id, box, conf in zip(classes, boxes, confidences):
                             object = self.det_model.names[int(cls_id)]
-                            print(f"Object: {object}")
-                            for box in boxes:
-                                if len(box) == 4:  # (x, y, w, h) 형식이 맞는지 확인
-                                    x, y, w, h = box
-                                    # 값들을 정수형으로 변환
-                                    x, y, w, h = int(x), int(y), int(w), int(h)
-                                    cv2.rectangle(frame_resized, (x, y), (w, h), (0, 255, 0), 2)  # 초록색, 두께 2
-                                else:
-                                    print(f"잘못된 박스 좌표 형식: {box}")
-                            pass
+
+                            print(f"Object: {object}, box: {box}, conf: {conf:.3f}")
+                            if len(box) == 4:  # (x, y, w, h) 형식이 맞는지 확인
+                                x, y, w, h = box
+                                # 값들을 정수형으로 변환
+                                x, y, w, h = int(x), int(y), int(w), int(h)
+                                cv2.rectangle(frame_resized, (x, y), (w, h), (0, 255, 0), 2)  # 초록색, 두께 2
+                            else:
+                                print(f"잘못된 박스 좌표 형식: {box}")
+                        pass
 
             for seg_result in seg_results:
                     
@@ -148,7 +182,7 @@ class VideoProcessor:
                     self.center.get_centroid(self.destination)                    
 
                     annotated_frame = seg_results[0].plot(boxes=False)
-                  
+
             processor = PurePursuit(self.destination, self.lookahead_distance)
             lookahead_distance, self.bezier_points = processor.get_bezier_points(self.car_position, (self.center.centroid_x, self.center.centroid_y))
             bezier_path = processor.bezier_curve(self.bezier_points)
@@ -178,11 +212,10 @@ class VideoProcessor:
 
             if det_results:
                 for box in boxes:
-                                if len(box) == 4:  # (x, y, w, h) 형식이 맞는지 확인
+                                if len(box) == 4:
                                     x, y, w, h = box
-                                    # 값들을 정수형으로 변환
                                     x, y, w, h = int(x), int(y), int(w), int(h)
-                                    rect = patches.Rectangle((x, y), w, h, linewidth=1, edgecolor='g', facecolor='none')  # 초록색 선, 투명한 내부
+                                    rect = patches.Rectangle((x, y), (w-x), (h-y), linewidth=1, edgecolor='g', facecolor='none')
                                     ax.add_patch(rect)
                                 else:
                                     print(f"잘못된 박스 좌표 형식: {box}")
@@ -199,6 +232,8 @@ class VideoProcessor:
             
             plt.draw()
             plt.pause(0.1)
+            cv2.circle(annotated_frame, (self.central_x, self.central_y), 5, (0, 0, 255), -1)
+            cv2.rectangle(annotated_frame, (0, 500), (640, 640), (200, 0, 0), 1)
             cv2.imshow('center_pursuit', annotated_frame)
             
             delay = int(50/ fps) # original fps
@@ -321,8 +356,8 @@ class Centroid():
 
 if __name__ == "__main__":
     video_path = './src/ellipse_intersection/video_output6.mp4' #'/home/ms/ws/git_ws/ComputerVision/src/ellipse_intersection/video_output6.mp4'
-    seg_path = '/home/ms/Downloads/best.pt'
-    det_path = '/home/ms/Downloads/det_best2.pt'
+    seg_path = '/home/ms/Downloads/seg_best3.pt'
+    det_path = '/home/ms/Downloads/det_best3.pt'
 
     seg_model = YOLO(seg_path, verbose=False)
     det_model = YOLO(det_path, verbose=False)
