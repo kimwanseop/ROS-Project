@@ -18,8 +18,8 @@ class PIDController(Node):
         self.linear_Kp = 0.1
 
         #횡방향 게인
-        self.declare_parameter('Kp', 1.8)
-        self.declare_parameter('Ki', 0.11)
+        self.declare_parameter('Kp', 1.6)
+        self.declare_parameter('Ki', 0.08)
         self.declare_parameter('Kd', 0.08)
 
         self.Kp = self.get_parameter('Kp').value
@@ -65,7 +65,7 @@ class PIDController(Node):
         
         self.target_slope = 0.0
         self.error = 0.0
-
+        self.prev_pid_output = 0.0
 
 
     def send_choosepath_request(self, is_left):
@@ -107,15 +107,17 @@ class PIDController(Node):
         match msg.data:
             case "green light":
                 self.target_linear_x = 0.25
+            case "reaccelerate":
+                self.target_linear_x = 0.25
             case "100KM":
                 self.target_linear_x = 0.25
             case "crossing":
                 self.target_linear_x = 0.20
             case "child protect":
+                self.target_linear_x = 0.17
+            case ("goat" | "obstacle"):
                 self.target_linear_x = 0.15
-            case ("goat" | "human" | "obstacle"):
-                self.target_linear_x = 0.14
-            case "red light":
+            case ("human" | "red light"):
                 self.target_linear_x = 0.0
 
 
@@ -158,7 +160,7 @@ class PIDController(Node):
         if self.target_linear_x <= 0.17:
             self.Kp = 1.2
         else:
-            self.Kp = 1.8
+            self.Kp = self.get_parameter('Kp').value
 
         error = msg.target_slope - msg.curr_slope
         self.integral += error
@@ -182,21 +184,27 @@ class PIDController(Node):
         elif pid_output <= -0.99:
             pid_output = -0.99
 
+        
         # self.get_logger().info(f'Target Slope: {msg.target_slope}, Current Slope: {msg.curr_slope}, Error: {error}, PID Output: {pid_output}')
         
         if self._fix_linear_x <= 0.02:
             pid_output = 0.0
             
+        if abs(pid_output - self.prev_pid_output) > 0.5:
+            self.get_logger().info("remove outlier PID Output")
+            pid_output = self.prev_pid_output
+
         cmd_vel = Twist()
         cmd_vel.linear.x = self._fix_linear_x
 
-        if cmd_vel.linear.x <= 0.02:
+        if cmd_vel.linear.x <= 0.1:
             pid_output = 0.0
         else:
             cmd_vel.angular.z = pid_output
 
         
-        
+        self.prev_pid_output = pid_output
+
         self.vel_publisher.publish(cmd_vel)
 
 
@@ -206,3 +214,4 @@ def main(args=None):
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
+
