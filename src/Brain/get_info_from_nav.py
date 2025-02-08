@@ -66,10 +66,14 @@ class WaypointFollowerNode(Node):
             converted_ori_cos_degree *= 2
             converted_ori_cos = (180 - converted_ori_cos_degree)% 360
 
-            delta_degree = abs(target_degree - converted_ori_cos)
+            delta_degree = target_degree - converted_ori_cos
 
-            clockwise = delta_degree % 360
-            revert_clockwise = 360 - clockwise
+            if delta_degree > 0:
+                clockwise = 360 - abs(delta_degree)
+                revert_clockwise = 360 - clockwise
+            elif delta_degree < 0:
+                clockwise = abs(delta_degree)
+                revert_clockwise = 360 - clockwise
 
             orient_msg = Int16()
 
