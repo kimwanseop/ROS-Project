@@ -50,72 +50,35 @@ class WaypointFollowerNode(Node):
 
     def get_arctan_difference(self):
         try:
-            # self.calculate_cnt += 1
 
             curr_x, curr_y = self.curr_x, self.curr_y
             
             tar_x, tar_y = self.target_x, self.target_y
             
-            # self.get_logger().info(f"curr_x: {curr_x}, tar_x: {tar_x}")
-            
             x_diff = tar_x - curr_x
-            y_diff = tar_y - curr_y
+            y_diff = -(tar_y - curr_y)
             
             """내 위치에서 waypoint까지의 각도"""
             target_radian = math.atan2(y_diff, x_diff)
-            cos_x = math.cos(target_radian)
-            sin_y = math.sin(target_radian)
-            
+            target_degree = math.degrees(target_radian)
 
-            """내가 바라보고 있는 각도"""
-            orient_radian = math.atan2(self.ori_sin, self.ori_cos)
+            converted_ori_cos_radian = math.cos(self.ori_cos)
+            converted_ori_cos_degree = math.degrees(math.acos(converted_ori_cos_radian))
+            converted_ori_cos_degree *= 2
+            converted_ori_cos = (180 - converted_ori_cos_degree)% 360
 
-            orient_new = orient_radian + math.pi
+            delta_degree = abs(target_degree - converted_ori_cos)
 
-            if orient_new < 0 :
-                orient_new += 2*math.pi
-            
-            orient_degree = math.degrees(orient_new)
+            clockwise, revert_clockwise = delta_degree, 360 - delta_degree
 
-            relative_degree = orient_degree - target_degree
-
-
-            # orient_angle = (180 - (math.degrees(math.atan2(self.ori_sin, self.ori_cos))) ) % 360 # (sinθ / cosθ)
-            
-            # self.get_logger().info(f"target: {target_degree}")
-            # self.get_logger().info(f"orient: {orient_degree}")
-
-            self.get_logger().info(f"relative deg: {relative_degree}")
-
-            # converted_orient = math.degrees(orient_angle) + 180
-
-            # angle_diff = math.degrees(target_angle - ori_angle)
-
-            # self.get_logger().info(f"angle_diff: {angle_diff}")
-
-            # angle_diff = (angle_diff + 180) % 360 - 180
-
-            # self.orient_list.append(angle_diff)
-
-            # if len(self.orient_list) > 2:
-            #     self.orient_list.pop()
-            #     self.orient_list.append(angle_diff)
-            #     res_val = np.mean(self.orient_list)
-            # else:
-            #     res_val = np.mean(self.orient_list)
-
-            # if self.calculate_cnt >= 5:
-            #     self.calculate_cnt = 0
-                
             orient_msg = Int16()
 
-            if relative_degree < 0: # 좌회전이 요구될 때
-                orient_msg.data = -1
-            elif relative_degree > 0: # 우회전이 요구될 때
+            if clockwise < revert_clockwise:
                 orient_msg.data = 1
             else:
-                return
-            self.get_logger().info(f"angle_diff: {relative_degree}, orient_msg:{orient_msg.data}")
+                orient_msg.data = -1
+           
+            self.get_logger().info(f"orient_msg:{orient_msg.data}")
             self.orientation_pub.publish(orient_msg)
         
         except:
