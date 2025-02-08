@@ -52,7 +52,6 @@ class WaypointFollowerNode(Node):
         try:
 
             curr_x, curr_y = self.curr_x, self.curr_y
-            
             tar_x, tar_y = self.target_x, self.target_y
             
             x_diff = tar_x - curr_x
@@ -69,7 +68,8 @@ class WaypointFollowerNode(Node):
 
             delta_degree = abs(target_degree - converted_ori_cos)
 
-            clockwise, revert_clockwise = delta_degree, 360 - delta_degree
+            clockwise = delta_degree % 360
+            revert_clockwise = 360 - clockwise
 
             orient_msg = Int16()
 
