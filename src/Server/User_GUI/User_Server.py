@@ -2,7 +2,8 @@ import os
 import sys 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import rclpy
-
+import numpy as np 
+import copy
 from Thread import Thread, CarThread
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -69,7 +70,8 @@ class User_Server(Init_User_Server):
         self.origin_x, self.origin_y = 215, 306
         self.pathplanner = PathPlanning()
         self.goal_x, self.goal_y = None, None,
-        self.all_path, self.waypoints = None, None
+        self.all_path, self.all_path2, self.waypoints = None, None, None
+        self.is_arrive = False
         
     def init_btns(self):
         self.btn_return.clicked.connect(self.checking_inside)
@@ -267,9 +269,7 @@ class User_Server(Init_User_Server):
         self.goal_x = goal_x*(self.origin_x/w)
         self.goal_y = goal_y*(self.origin_y/h)
         
-
         self.close_window('position')        
-
         self.cardb.update_values('car', 'is_rented=1', f'car_number="{str(self.rentcar_number)}"')
         self.close_window('renting')
         self.popup_window('map')
@@ -421,51 +421,65 @@ class User_Server(Init_User_Server):
             data = self.myCar.pos 
             position = data.pose.position 
             orientation = data.pose.orientation
+            
+            z, w = orientation.z, orientation.w
             pos_x, pos_y = position.x, position.y
             
             self.cardb.update_values('car', f'pos="{pos_x}, {pos_y}"', f'car_number="{str(self.rentcar_number)}"')
-            pos_x = (px + pos_x-0.1)*100
-            pos_y = (self.origin_y - (py + pos_y)*100)
-            plan_x, plan_y = int(pos_x*(183/self.origin_x))+5, int(pos_y*(270/self.origin_y))
-            print('pos :', plan_x, plan_y)
+            # pgm파일 x100배 한 좌표
+            pos_x = (px + pos_x)*100-16
+            pos_y = (self.origin_y - (py + pos_y)*100)-18
+
+            plan_x, plan_y = int(pos_x*(183/(self.origin_x  - 16*2)))+5, int(pos_y*(270/(self.origin_y  - 18*2)))
+
             if self.all_path is None or self.waypoints is None:
+                origin_x = 184
+                origin_y = 270
                 self.all_path, self.waypoints = self.pathplanner.generate_waypoint((plan_x, plan_y), (self.goal_x, self.goal_y))
-            pos_x = int(pos_x * (self.map_w/self.origin_x))
-            pos_y = int(pos_y * (self.map_h/self.origin_y))
+                for i in range(len(self.all_path)):
+                    self.all_path[i][0] = int(self.all_path[i][0] * (-0.2 + self.map_w/origin_x))
+                    self.all_path[i][1] = int((self.all_path[i][1]-2) * (0.6+self.map_h/origin_y))
+
+
+            pos_x = int((pos_x) * (self.map_w/(self.origin_x  - 16*2)))
+            pos_y = int((pos_y) * (self.map_h/(self.origin_y - 18*2)))
             goal_x = int((self.goal_x-4) * (self.map_w/self.origin_x))
             goal_y = int((self.goal_y-5) * (self.map_h/self.origin_y))
 
             self.map_frame.setPixmap(self.pixmap)
             painter = QPainter(self.map_frame.pixmap())
-            painter.setPen(QPen(Qt.red, 5))
-            painter.setBrush(QBrush(Qt.red))
-            painter.drawEllipse(pos_x, pos_y, 100, 100)
-            painter.setPen(QPen(Qt.blue, 5))
-            painter.setBrush(QBrush(Qt.blue))
-            # painter.drawEllipse(pos_x, pos_y, 100, 100)
-            painter.drawEllipse(goal_x, goal_y, 100, 100)
 
-            # painter.setPen(QPen(Qt.green, 5))
-            # painter.setBrush(QBrush(Qt.green))
-            # painter.drawLine(pos_x, pos_y, goal_x, goal_y)
+            self.all_path[0] = [pos_y+50, pos_x+50]
+            self.all_path[-1] = [goal_y+50, goal_x+50]
+                
             for i in range(len(self.all_path)-1):
                 painter.setPen(QPen(Qt.green, 20))
                 painter.setBrush(QBrush(Qt.green))
                 cur_points = self.all_path[i]
                 next_points = self.all_path[i+1]
                 cur_x, cur_y = cur_points
-                # cur_x, cur_y = cur_x + 16, cur_y + 18
                 next_x, next_y = next_points
-                # next_x, next_y = next_x + 16, next_y + 18
-                origin_x = 184
-                origin_y = 270
-                cur_x = int((cur_x) * (-0.2 + self.map_w/origin_x))
-                cur_y = int((cur_y-2) * (0.6+self.map_h/origin_y))
-                next_x = int((next_x) * (-0.2 + self.map_w/origin_x))
-                next_y = int((next_y-2) * (0.6+self.map_h/origin_y))
+                
                 painter.drawLine(cur_y, cur_x, next_y, next_x)
 
+            painter.setPen(QPen(Qt.red, 5))
+            painter.setBrush(QBrush(Qt.red))
+            painter.drawEllipse(pos_x, pos_y, 100, 100)
+            
+            if not self.is_arrive:
+                painter.setPen(QPen(Qt.blue, 5))
+                painter.setBrush(QBrush(Qt.blue))
+                painter.drawEllipse(goal_x, goal_y, 100, 100)
             painter.end()
+
+            if len(self.all_path) == 1:
+                self.is_arrive = True
+                self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[0][1], self.all_path[0][0], z, w, self.is_arrive}'
+            else:
+                self.is_arrive = False
+                if np.linalg.norm(self.all_path[0] - self.all_path[1]) < 150:
+                    self.all_path = self.all_path[1:]
+                self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[1][1], self.all_path[1][0], z, w, self.is_arrive}'
         except:
             pass
 
