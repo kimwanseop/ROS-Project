@@ -13,7 +13,7 @@ class PathPlanning():
     def __init__(self, map_path='./Images/asap_map_resized.pgm', middle_path='./Images/asap_map_middleLine.png'):
         self.MOVES = [(-1, 0), (1, 0), (0, -1), (0, 1)]
         self.map = cv2.imread(map_path, cv2.COLOR_BGR2GRAY)
-        self.middle = cv2.imread(middle_path, cv2.COLOR_BGR2GRAY)
+        self.middle = cv2.imread(middle_path, cv2.IMREAD_GRAYSCALE)
         self.grid = None 
         self.background = None
         crop_size = 16
@@ -25,11 +25,11 @@ class PathPlanning():
         self.min2_take = None
         self.one_way = None
         self.exc_sig = None
-        self.call_sig = None
+        # self.call_sig = None
 
         # wp number
         wp_num = {
-            0 : (108, 237),
+            0 : (110, 237),
             1 : (88, 261),
             2 : (88, 275),
             3 : (58, 196),
@@ -40,21 +40,27 @@ class PathPlanning():
             8 : (107, 28),
             9 : (178, 42),
             10 : (187, 140),
-        #     wp_num[key] = (int([0] - crop_size), int(value[1]))
             11 : (170, 140),
             12 : (187, 196),
             13 : (171, 196),
             14 : (142, 276),
             15 : (142, 261),
-            16 : (93, 173),
-            17 : (93, 158),
-            18 : (138, 173),
-            19 : (138, 158),
+            16 : (73, 173),
+            17 : (73, 158),
+            18 : (155, 173),
+            19 : (155, 158),
             20 : (85,96),
-            21 : (113, 49),
+            21 : (85, 46),
             22 : (150, 97),
             23 : (121, 237),
-            24 : (44,95)
+            24 : (44,95),
+            25 : (150, 46),
+            # 일방 통행 좌표용
+            30 : (88, 107),
+            31 : (37, 56),
+            
+            # 조건문 좌표용
+            32 : (90, 0)
         }
 
         for key, value in wp_num.items():
@@ -93,6 +99,20 @@ class PathPlanning():
             wp_num[24]: [wp_num[5], wp_num[6]],  # 24번 : 5, 6  
         }
 
+    # 좌표 범위 늘리기
+    def expand_coordinates(self, coord, buffer_size):
+        x, y = coord
+        expanded_area = [(x + dx, y + dy) 
+                        for dx in range(-buffer_size, buffer_size + 1) 
+                        for dy in range(-buffer_size, buffer_size + 1)]
+        return expanded_area
+
+    def expand_multiple_coordinates(self, coord_list, buffer_size):
+        expanded_set = set()  # 중복 제거
+        for coord in coord_list:
+            expanded_set.update(self.expand_coordinates(coord, buffer_size))
+        return list(expanded_set)
+
     # pgm 지도를 이진화 형태로 변환
     def pixel_based_map(self, img):
         img_height, img_width = img.shape 
@@ -126,6 +146,8 @@ class PathPlanning():
     def create_weight_map(self, grid, middle, buffer_size, penalty):
         background = grid  # 이진화 된 배열 형태의 전체 map
         overlay = middle  # 이진화 된 배열 형태의 중앙선 map
+
+        background[200:228, 86:89] = 1
 
         x, y = 18, 19  # 중앙선 map 을 삽입할 위치
 
@@ -224,15 +246,15 @@ class PathPlanning():
                             came_from[neighbor] = current
             return None
 
-    def valid_start_goal(self, coord):
-        if (20 < coord[0] < 73) and (133 < coord[1] < 195):
-            # print('호출 및 주정차 금지 구역 입니다.')
-            return False
-        else:
-            # print('유효한 좌표')
-            return True
+    # def valid_start_goal(self, coord):
+    #     if (20 < coord[0] < 73) and (133 < coord[1] < 195):
+    #         # print('호출 및 주정차 금지 구역 입니다.')
+    #         return False
+    #     else:
+    #         # print('유효한 좌표')
+    #         return True
 
-    def find_start_goal(self, coord, waypoint_graph, flag=None):
+    def find_start_goal(self, coord, waypoint_graph, grid, weight_map, flag=None):
         # global min1_take, min2_take, one_way, exc_sig
         cost_list = []
         for station in waypoint_graph:
@@ -243,12 +265,12 @@ class PathPlanning():
 
         # start 좌표를 줬을 때
         if flag is None:
-            if (88 < self.start[1] < 107 and 85 < self.start[0] < 150):  # 일방 통행 구역에 start 가 있으면
+            if (self.wp_num[30][0] < self.start[1] < self.wp_num[30][1] and self.wp_num[20][0] < self.start[0] < self.wp_num[22][0]):  # 일방 통행 구역에 start 가 있으면
                 print('start 가 일방통행 구역 안에 있으므로 따로 처리')
                 new_coord = self.wp_num[22]
                 self.one_way = 1
                 return new_coord
-            elif (37 < self.start[1] < 56 and 85 < self.start[0] < 150):  # 다른 일방 통행 구역에 start 가 있으면
+            elif (self.wp_num[31][0] < self.start[1] < self.wp_num[31][1] and self.wp_num[21][0] < self.start[0] < self.wp_num[25][0]):  # 다른 일방 통행 구역에 start 가 있으면
                 print('start 가 일방통행 구역 안에 있으므로 따로 처리')
                 new_coord = self.wp_num[25]
                 self.one_way = 1
@@ -258,7 +280,7 @@ class PathPlanning():
                 print(f"두 번째로 작은 비용 wp from start : {min2_idx}번, 비용 : {min2}")
 
                 # if (min1_idx == 20 and min2_idx == 21 and start[1] < 90) or (min1_idx == 5 and min2_idx == 20):
-                if (min1_idx == 20 and min2_idx == 21 and self.start[1] < 90):   
+                if (min1_idx == 20 and min2_idx == 21 and self.start[1] < self.wp_num[32][0]):   
                     new_coord, idx = self.wp_num[min2_idx], min2_idx
                     self.min2_take = 1
                     print('min2 선택!(start)')
@@ -267,7 +289,8 @@ class PathPlanning():
                     # new_coord, idx = wp_num[min1_idx], min1_idx
                     # min1_take = 1
                     # print('min1 선택! (start)')
-                    if (min1_idx == 20 and min2_idx == 5) or (min1_idx == 5 and min2_idx == 20) or (min1_idx == 5 and min2_idx == 17) or (min1_idx == 17 and min2_idx == 5):
+                    # if (min1_idx == 20 and min2_idx == 5) or (min1_idx == 5 and min2_idx == 20) or (min1_idx == 5 and min2_idx == 17) or (min1_idx == 17 and min2_idx == 5):
+                    if (min1_idx == 20 and min2_idx == 17) or (min1_idx == 17 and min2_idx == 20) or (min1_idx == 5 and min2_idx == 17) or (min1_idx == 17 and min2_idx == 5):
                         self.exc_sig = 1
                         new_coord = self.wp_num[20]
                         print('(5번, 20번), (5번, 17번) 예외처리')
@@ -293,17 +316,17 @@ class PathPlanning():
                 return new_coord
         # 주 지도
         
-    # return_sig 은 GUI 로부터 받아오는 값
+    # return_sig 은 GUI 로부터 받아오는 값 (사용자가 차량을 반납할 때)
     # call_sig 도 GUI 로부터 받아오는 값 (최초 호출 시 발생하는 신호로 생각)
-    def generate_waypoint(self, start_point, goal_point, call_sig, return_sig):
+    def generate_waypoint(self, start_point, goal_point, call_sig=None, return_sig=None):
         # 지도 변환 pgm -> 이진 배열 (0: 도로, 1: 장애물)
         grid = self.pixel_based_map(self.map)
         self.grid = grid 
         
         # 최초 호출, 반납 여부
         # return_sig 는 GUI 로부터 받아야 함.
-        call_sig = None
-        return_sig = None
+        # call_sig = None  # 사용자가 최초 호출 시 해당 시그널 1 을 받아오기
+        # return_sig = None
 
         # 테스트 실행
         start = start_point  # 시작 좌표
@@ -311,96 +334,98 @@ class PathPlanning():
         
         self.start = start 
         self.goal = goal
-        # if return_sig == 1:
-        #     goal = self.wp_num[23]  # 목표 좌표
 
-        start_valid = self.valid_start_goal(self.start)
-        goal_valid = self.valid_start_goal(self.goal)
+        if return_sig is not None:
+            self.goal = self.wp_num[23]  # 목표 좌표
+        # 장애물 주변 가중치 추가
+        weight_map, background_result = self.create_weight_map(grid, self.middle, buffer_size=10, penalty=7)
+        
+        # 시작점, 출발점 보간
+        new_start = self.find_start_goal(start, self.waypoint_graph, grid, weight_map)
+        new_goal = self.find_start_goal(goal, self.waypoint_graph, grid, weight_map, flag=1)
 
-        # 둘다 유효한 좌표여야 함.
-        if start_valid and goal_valid:
-            if return_sig == 1:
-                self.goal = self.wp_num[23]  # 목표 좌표
-            # 장애물 주변 가중치 추가
-            weight_map, background_result = self.create_weight_map(grid, self.middle, buffer_size=10, penalty=5)
+        if (new_start != new_goal or self.exc_sig is not None):
+            wp_path = self.a_star(new_start, new_goal, self.waypoint_graph)
+
+            s = wp_path[-2]
+            g = wp_path[-1]
+
+            path_result, _ = self.a_star((s[1], s[0]), (g[1], g[0]), self.waypoint_graph, grid, weight_map)
+
+            expended_list = self.expand_multiple_coordinates(path_result, buffer_size=3)
+
+            if (goal[1], goal[0]) in expended_list:
+                wp_path[-1] = goal
+            else:
+                wp_path.append(goal)
+
+            # if new_goal != self.goal:
+            #     wp_path[-1] = self.goal
             
-            # 시작점, 출발점 보간
-            new_start = self.find_start_goal(self.start, self.waypoint_graph)
-            new_goal = self.find_start_goal(self.goal, self.waypoint_graph)
-
-            if (new_start != new_goal or self.exc_sig is not None):
-                wp_path = self.a_star(new_start, new_goal, self.waypoint_graph)
-
-                if new_goal != self.goal:
-                    wp_path[-1] = self.goal
+            if wp_path:
+                linked_path = []
+                if len(wp_path) == 1 or self.one_way is not None:
+                    wp_path.insert(0, start)
                 
-                if wp_path:
-                    linked_path = []
-                    if len(wp_path) == 1 or self.one_way is not None:
-                        wp_path.insert(0, self.start)
-                    
-                    if self.one_way is not None:
-                        for_cnt = len(wp_path) - 1
-                    elif self.min2_take == 1 or self.min1_take == 1:    
-                        for_cnt = len(wp_path)
+                if self.one_way is not None:
+                    for_cnt = len(wp_path) - 1
+                else:
+                    for_cnt = len(wp_path)
 
-                    for i in range(for_cnt):
-                        if ((i == 0) and (wp_path[i] != self.start)):
-                            if len(wp_path) == 1:
-                                wp_start = self.start
-                                wp_goal = wp_path[i]
-                            else:
-                                if self.call_sig is not None:
-                                    if self.exc_sig is not None:
-                                        wp_path[0] = self.start
-                                    else:
-                                        wp_path.insert(0, self.start)
-
-                                elif (self.min1_take is None and self.min2_take == 1):
-                                    wp_path.insert(0, new_start)
-                                elif (self.min2_take is None and self.min1_take == 1):
-                                    if self.exc_sig is not None:
-                                        wp_path.insert(0, start)
-                                    else:
-                                        wp_path[0] = start
-
-                                wp_start = self.start
-                                wp_goal = wp_path[i + 1]
-
+                for i in range(for_cnt):
+                    if ((i == 0) and (wp_path[i] != start)):
+                        if len(wp_path) == 1:
+                            wp_start = start
+                            wp_goal = wp_path[i]
                         else:
-                            try:
-                                wp_start = wp_path[i]
-                                wp_goal = wp_path[i + 1]
-                            except:
-                                pass
+                            if call_sig is not None:
+                                if self.exc_sig is not None:
+                                    wp_path[0] = start
+                                else:
+                                    wp_path.insert(0, start)
 
-                        part_path, _ = (self.a_star((wp_start[1], wp_start[0]), (wp_goal[1], wp_goal[0]), self.waypoint_graph, grid, weight_map))
-                        real_path = np.array(part_path)
+                            elif (self.min1_take is None and self.min2_take is not None):
+                                wp_path.insert(0, new_start)
+                            elif (self.min2_take is None and self.min1_take is not None):
+                                if self.exc_sig is not None:
+                                    wp_path.insert(0, start)
+                                else:
+                                    wp_path[0] = start
 
-                        sample_cnt = 15
+                            wp_start = start
+                            wp_goal = wp_path[i + 1]
 
-                        if len(real_path) // sample_cnt >= 1 and len(real_path) > sample_cnt:
-                            real_path = real_path[::sample_cnt]
-                        else:
+                    else:
+                        try:
+                            wp_start = wp_path[i]
+                            wp_goal = wp_path[i + 1]
+                        except:
                             pass
 
-                        if (len(wp_path) != 1) and (tuple(real_path[-1]) != (wp_goal[1], wp_goal[0])):
-                            real_path[-1] = (wp_goal[1], wp_goal[0])
+                    part_path, _ = (self.a_star((wp_start[1], wp_start[0]), (wp_goal[1], wp_goal[0]), self.waypoint_graph, grid, weight_map))
+                    real_path = np.array(part_path)
 
-                        linked_path.append(real_path)
-                    
-                    return np.concatenate(linked_path)
-                else:
-                    print('No path found')
+                    sample_cnt = 15
+
+                    if len(real_path) // sample_cnt >= 1 and len(real_path) > sample_cnt:
+                        real_path = real_path[::sample_cnt]
+                    else:
+                        pass
+
+                    if (len(wp_path) != 1) and (tuple(real_path[-1]) != (wp_goal[1], wp_goal[0])):
+                        real_path[-1] = (wp_goal[1], wp_goal[0])
+
+                    linked_path.append(real_path)
+                    self.init_signal()  # 모든 시그널 초기화
+                # 15개씩 샘플링 된 모든 경로 좌표
+                return np.concatenate(linked_path), wp_path
             else:
-                print('현재 목적지 근처에 있습니다.')
-                # 경로 생성 바로 종료하도록 하는 신호
-                return
+                print('No path found')
         else:
-            print('호출 및 주정차 금지 구역입니다.')
-            # 사용자로부터 목적지 다시 입력받도록 하는 신호
-            return
-        
+            print('현재 목적지 근처에 있습니다.')
+            # 경로 생성 바로 종료하도록 하는 신호
+            return None, None
+
 
                 
     def draw_path(self, real_path):
@@ -429,3 +454,8 @@ class PathPlanning():
             plt.plot(real_path[:, 1], real_path[:, 0], color='green', linewidth=2, label="Path")    
 
         
+    def init_signal(self):
+        self.min1_take = None
+        self.min2_take = None
+        self.one_way = None
+        self.exc_sig = None
