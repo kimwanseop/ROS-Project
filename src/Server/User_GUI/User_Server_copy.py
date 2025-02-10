@@ -20,7 +20,7 @@ from Init_user_server import Init_User_Server
 from DB.Car import Car
 from DB.Member import Member
 from Control_CAR import MyCar
-from PathPlanner import PathPlanning
+from PathPlanner_copy import PathPlanning
 from Recognition import FaceRecognitionModel
 
 

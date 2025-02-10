@@ -195,6 +195,59 @@ QPushButton:pressed {
      <string/>
     </property>
    </widget>
+   <widget class="QLabel" name="label_boarding">
+    <property name="geometry">
+     <rect>
+      <x>110</x>
+      <y>520</y>
+      <width>161</width>
+      <height>51</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: rgb(37, 37, 37);
+border-radius: 25px; font: bold 23pt &quot;Ubuntu&quot;;
+border: 3px solid white;
+color: white;</string>
+    </property>
+    <property name="frameShape">
+     <enum>QFrame::NoFrame</enum>
+    </property>
+    <property name="text">
+     <string>Board</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="btn_boarding">
+    <property name="geometry">
+     <rect>
+      <x>110</x>
+      <y>520</y>
+      <width>161</width>
+      <height>51</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QPushButton {
+	background: transparent;
+	border: none;
+	border-radius: 80px;
+}
+
+QPushButton:hover {
+    background: rgba(255, 255, 255, 0.1);  /* 살짝 투명한 배경 */
+}
+QPushButton:pressed {
+    background: rgba(255, 255, 255, 0.2);
+}
+</string>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+   </widget>
   </widget>
   <widget class="QPushButton" name="btn_home">
    <property name="geometry">
@@ -313,7 +366,7 @@ border-radius: 3px;</string>
      <string/>
     </property>
    </widget>
-   <widget class="QPushButton" name="btn_board">
+   <widget class="QPushButton" name="select_mode">
     <property name="geometry">
      <rect>
       <x>120</x>
@@ -323,7 +376,26 @@ border-radius: 3px;</string>
      </rect>
     </property>
     <property name="text">
-     <string>탑승</string>
+     <string>모드 선택</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="center_area">
+    <property name="geometry">
+     <rect>
+      <x>123</x>
+      <y>385</y>
+      <width>170</width>
+      <height>106</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: rgba(255, 0, 0, 0);</string>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
     </property>
    </widget>
   </widget>
@@ -702,9 +774,9 @@ border-radius: 5px;</string>
   <zorder>map_info</zorder>
   <zorder>login_widget</zorder>
   <zorder>car_widget</zorder>
-  <zorder>map_widget</zorder>
   <zorder>select_car_widget</zorder>
   <zorder>start_widget</zorder>
+  <zorder>map_widget</zorder>
   <zorder>btn_logout</zorder>
   <zorder>btn_home</zorder>
  </widget>

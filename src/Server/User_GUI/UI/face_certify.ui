@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>547</width>
-    <height>382</height>
+    <width>744</width>
+    <height>488</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -18,8 +18,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>551</width>
-     <height>381</height>
+     <width>751</width>
+     <height>491</height>
     </rect>
    </property>
    <property name="styleSheet">
@@ -35,14 +35,14 @@
   <widget class="QPushButton" name="capture">
    <property name="geometry">
     <rect>
-     <x>480</x>
-     <y>160</y>
-     <width>51</width>
-     <height>51</height>
+     <x>660</x>
+     <y>200</y>
+     <width>71</width>
+     <height>71</height>
     </rect>
    </property>
    <property name="styleSheet">
-    <string notr="true">background-color: white; border-radius: 25px;</string>
+    <string notr="true">background-color: white; border-radius: 35px;</string>
    </property>
    <property name="text">
     <string/>
