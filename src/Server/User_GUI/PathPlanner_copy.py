@@ -25,7 +25,6 @@ class PathPlanning():
         self.min2_take = None
         self.one_way = None
         self.exc_sig = None
-        # self.call_sig = None
 
         # wp number
         wp_num = {
@@ -246,14 +245,6 @@ class PathPlanning():
                             came_from[neighbor] = current
             return None
 
-    # def valid_start_goal(self, coord):
-    #     if (20 < coord[0] < 73) and (133 < coord[1] < 195):
-    #         # print('호출 및 주정차 금지 구역 입니다.')
-    #         return False
-    #     else:
-    #         # print('유효한 좌표')
-    #         return True
-
     def find_start_goal(self, coord, waypoint_graph, grid, weight_map, flag=None):
         # global min1_take, min2_take, one_way, exc_sig
         cost_list = []
@@ -286,9 +277,6 @@ class PathPlanning():
                     print('min2 선택!(start)')
                     return new_coord
                 else:
-                    # new_coord, idx = wp_num[min1_idx], min1_idx
-                    # min1_take = 1
-                    # print('min1 선택! (start)')
                     # if (min1_idx == 20 and min2_idx == 5) or (min1_idx == 5 and min2_idx == 20) or (min1_idx == 5 and min2_idx == 17) or (min1_idx == 17 and min2_idx == 5):
                     if (min1_idx == 20 and min2_idx == 17) or (min1_idx == 17 and min2_idx == 20) or (min1_idx == 5 and min2_idx == 17) or (min1_idx == 17 and min2_idx == 5):
                         self.exc_sig = 1
@@ -314,20 +302,12 @@ class PathPlanning():
                 new_coord, idx = self.wp_num[min1_idx], min1_idx
                 print('min1 선택 (goal)')
                 return new_coord
-        # 주 지도
         
-    # return_sig 은 GUI 로부터 받아오는 값 (사용자가 차량을 반납할 때)
-    # call_sig 도 GUI 로부터 받아오는 값 (최초 호출 시 발생하는 신호로 생각)
-    def generate_waypoint(self, start_point, goal_point, call_sig=None, return_sig=None):
+    def generate_waypoint(self, start_point, goal_point, is_renting=None, return_sig=None):
         # 지도 변환 pgm -> 이진 배열 (0: 도로, 1: 장애물)
         grid = self.pixel_based_map(self.map)
         self.grid = grid 
         
-        # 최초 호출, 반납 여부
-        # return_sig 는 GUI 로부터 받아야 함.
-        # call_sig = None  # 사용자가 최초 호출 시 해당 시그널 1 을 받아오기
-        # return_sig = None
-
         # 테스트 실행
         start = start_point  # 시작 좌표
         goal = goal_point  # 목표 좌표
@@ -335,7 +315,7 @@ class PathPlanning():
         self.start = start 
         self.goal = goal
 
-        if return_sig is not None:
+        if return_sig is True:
             self.goal = self.wp_num[23]  # 목표 좌표
         # 장애물 주변 가중치 추가
         weight_map, background_result = self.create_weight_map(grid, self.middle, buffer_size=10, penalty=7)
@@ -359,8 +339,6 @@ class PathPlanning():
             else:
                 wp_path.append(goal)
 
-            # if new_goal != self.goal:
-            #     wp_path[-1] = self.goal
             
             if wp_path:
                 linked_path = []
@@ -378,7 +356,7 @@ class PathPlanning():
                             wp_start = start
                             wp_goal = wp_path[i]
                         else:
-                            if call_sig is not None:
+                            if is_renting is False:
                                 if self.exc_sig is not None:
                                     wp_path[0] = start
                                 else:
