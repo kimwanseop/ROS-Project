@@ -30,8 +30,8 @@ class PathPlanning():
         wp_num = {
             0 : (110, 237),
             1 : (88, 261),
-            2 : (88, 275),
-            3 : (58, 196),
+            2 : (88, 277),
+            3 : (60, 196),
             4 : (45, 196),
             5 : (44, 140),
             6 : (31, 140),
@@ -42,18 +42,19 @@ class PathPlanning():
             11 : (170, 140),
             12 : (187, 196),
             13 : (171, 196),
-            14 : (142, 276),
+            14 : (142, 277),
             15 : (142, 261),
             16 : (73, 173),
             17 : (73, 158),
             18 : (155, 173),
             19 : (155, 158),
-            20 : (85,96),
-            21 : (85, 46),
+            20 : (85, 96),
+            21 : (85, 44),
             22 : (150, 97),
             23 : (121, 237),
-            24 : (44,95),
-            25 : (150, 46),
+            24 : (44, 95),
+            25 : (150, 44),
+            26 : (108, 216),
             # 일방 통행 좌표용
             30 : (88, 107),
             31 : (37, 56),
@@ -90,12 +91,14 @@ class PathPlanning():
             wp_num[18]: [wp_num[10], wp_num[13]],  # 18번 : 10, 13
             wp_num[19]: [wp_num[17]],  # 19번 : 17
             wp_num[20]: [wp_num[21], wp_num[22]],  # 20번 : 21, 22
-            wp_num[21]: [wp_num[11]],  # 21번 : 11
+            wp_num[21]: [wp_num[25]],  # 21번 : 25
             wp_num[22]: [wp_num[11]],  # 22번 : 11
 
             wp_num[23]: [],  # 23번 : 도착 시 행하는 명령어만 따로 만들기
 
             wp_num[24]: [wp_num[5], wp_num[6]],  # 24번 : 5, 6  
+            wp_num[25]: [wp_num[11]], # 25번 : 11
+            wp_num[26]: [wp_num[0]]  # 26번 : 0
         }
 
     # 좌표 범위 늘리기
@@ -145,9 +148,7 @@ class PathPlanning():
     def create_weight_map(self, grid, middle, buffer_size, penalty):
         background = grid  # 이진화 된 배열 형태의 전체 map
         overlay = middle  # 이진화 된 배열 형태의 중앙선 map
-
-        background[200:228, 86:89] = 1
-
+        
         x, y = 18, 19  # 중앙선 map 을 삽입할 위치
 
         background_result = background.astype('uint8')
@@ -303,7 +304,8 @@ class PathPlanning():
                 print('min1 선택 (goal)')
                 return new_coord
         
-    def generate_waypoint(self, start_point, goal_point, is_renting=None, return_sig=None):
+    # def generate_waypoint(self, start_point, goal_point, is_renting=None, return_sig=None):
+    def generate_waypoint(self, start_point, goal_point, is_renting, pp_cnt):
         # 지도 변환 pgm -> 이진 배열 (0: 도로, 1: 장애물)
         grid = self.pixel_based_map(self.map)
         self.grid = grid 
@@ -315,13 +317,16 @@ class PathPlanning():
         self.start = start 
         self.goal = goal
 
-        if return_sig is True:
+        if is_renting is False:
             self.goal = self.wp_num[23]  # 목표 좌표
         # 장애물 주변 가중치 추가
         weight_map, background_result = self.create_weight_map(grid, self.middle, buffer_size=10, penalty=7)
         
         # 시작점, 출발점 보간
-        new_start = self.find_start_goal(start, self.waypoint_graph, grid, weight_map)
+        if pp_cnt:
+            new_start = self.find_start_goal(start, self.waypoint_graph, grid, weight_map)
+        else:
+            new_start = self.wp_num[26]
         new_goal = self.find_start_goal(goal, self.waypoint_graph, grid, weight_map, flag=1)
 
         if (new_start != new_goal or self.exc_sig is not None):
@@ -332,12 +337,18 @@ class PathPlanning():
 
             path_result, _ = self.a_star((s[1], s[0]), (g[1], g[0]), self.waypoint_graph, grid, weight_map)
 
-            expended_list = self.expand_multiple_coordinates(path_result, buffer_size=3)
+            expended_list = self.expand_multiple_coordinates(path_result, buffer_size=4)
+            expended_goal = self.expand_coordinates((goal[1], goal[0]), buffer_size=4)
 
-            if (goal[1], goal[0]) in expended_list:
+            if any(goal in expended_list for goal in expended_goal):
                 wp_path[-1] = goal
             else:
                 wp_path.append(goal)
+
+            # if (goal[1], goal[0]) in expended_list:
+            #     wp_path[-1] = goal
+            # else:
+            #     wp_path.append(goal)
 
             
             if wp_path:
@@ -356,19 +367,20 @@ class PathPlanning():
                             wp_start = start
                             wp_goal = wp_path[i]
                         else:
-                            if is_renting is False:
+                            if pp_cnt is False:
                                 if self.exc_sig is not None:
                                     wp_path[0] = start
                                 else:
                                     wp_path.insert(0, start)
 
-                            elif (self.min1_take is None and self.min2_take is not None):
-                                wp_path.insert(0, new_start)
-                            elif (self.min2_take is None and self.min1_take is not None):
-                                if self.exc_sig is not None:
-                                    wp_path.insert(0, start)
-                                else:
-                                    wp_path[0] = start
+                            else:
+                                if (self.min1_take is None and self.min2_take is not None):
+                                    wp_path.insert(0, new_start)
+                                elif (self.min2_take is None and self.min1_take is not None):
+                                    if self.exc_sig is not None:
+                                        wp_path.insert(0, start)
+                                    else:
+                                        wp_path[0] = start
 
                             wp_start = start
                             wp_goal = wp_path[i + 1]
@@ -394,18 +406,26 @@ class PathPlanning():
                         real_path[-1] = (wp_goal[1], wp_goal[0])
 
                     linked_path.append(real_path)
-                    self.init_signal()  # 모든 시그널 초기화
+                    
+                self.init_signal()  # 모든 시그널 초기화
+
                 # 15개씩 샘플링 된 모든 경로 좌표
-                return np.concatenate(linked_path), wp_path
+                linked_path = np.concatenate(linked_path)
+                _, idx = np.unique(linked_path, axis=0, return_index=True)
+                final_path = linked_path[np.sort(idx)]
+                return final_path, wp_path
+                # return np.concatenate(linked_path), wp_path
             else:
+                self.init_signal()
                 print('No path found')
+                return None, None
         else:
+            self.init_signal()  # 모든 시그널 초기화
+
             print('현재 목적지 근처에 있습니다.')
             # 경로 생성 바로 종료하도록 하는 신호
             return None, None
 
-
-                
     def draw_path(self, real_path):
         # 시작점, 목표점
         plt.imshow(self.grid, cmap='gray')
