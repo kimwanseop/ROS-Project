@@ -57,7 +57,10 @@ class PathPlanning():
             25 : (150, 46),
             # 일방 통행 좌표용
             30 : (88, 107),
-            31 : (37, 56)
+            31 : (37, 56),
+            
+            # 조건문 좌표용
+            32 : (90, 0)
         }
 
         for key, value in wp_num.items():
@@ -277,7 +280,7 @@ class PathPlanning():
                 print(f"두 번째로 작은 비용 wp from start : {min2_idx}번, 비용 : {min2}")
 
                 # if (min1_idx == 20 and min2_idx == 21 and start[1] < 90) or (min1_idx == 5 and min2_idx == 20):
-                if (min1_idx == 20 and min2_idx == 21 and self.start[1] < 90):   
+                if (min1_idx == 20 and min2_idx == 21 and self.start[1] < self.wp_num[32][0]):   
                     new_coord, idx = self.wp_num[min2_idx], min2_idx
                     self.min2_take = 1
                     print('min2 선택!(start)')
@@ -413,15 +416,15 @@ class PathPlanning():
                         real_path[-1] = (wp_goal[1], wp_goal[0])
 
                     linked_path.append(real_path)
-                
+                    self.init_signal()  # 모든 시그널 초기화
                 # 15개씩 샘플링 된 모든 경로 좌표
-                return np.concatenate(linked_path)
+                return np.concatenate(linked_path), wp_path
             else:
                 print('No path found')
         else:
             print('현재 목적지 근처에 있습니다.')
             # 경로 생성 바로 종료하도록 하는 신호
-            return
+            return None, None
 
 
                 
