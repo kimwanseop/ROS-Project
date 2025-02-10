@@ -21,7 +21,7 @@ from DB.Car import Car
 from DB.Member import Member
 from Control_CAR import MyCar
 from PathPlanner import PathPlanning
-from Recognition import FaceRecognitionModel
+from Recognition import FaceRecognitionModel, DetectionModel
 
 
 class GetPosition(QDialog):
@@ -81,6 +81,7 @@ class User_Server(Init_User_Server):
 
     def init_parameters(self):
         self.popup_window('main_window')
+        self.is_capturing = False
         self.is_start=False
         self.passwords = {}
         self.password = ''
@@ -94,7 +95,7 @@ class User_Server(Init_User_Server):
         self.USER_ID = None
 
         self.pathplanner = PathPlanning()
-
+        self.face_detection = DetectionModel().cuda()
         self.face_recognition_model = FaceRecognitionModel()
         
     def init_btns(self):
@@ -170,6 +171,7 @@ class User_Server(Init_User_Server):
         uic.loadUi('./UI/register.ui', self.register_window)
         self.register_window.register_2.clicked.connect(self.add_member)
         self.register_window.add_image.clicked.connect(self.add_img)
+        self.register_window.capture_image.clicked.connect(self.capture_image)
         self.register_window.cancel.clicked.connect(lambda: self.close_window('register'))
 
         self.add_alert = QDialog()
@@ -210,6 +212,20 @@ class User_Server(Init_User_Server):
         uic.loadUi('./UI/arrive.ui', self.arrive_window)
         self.arrive_window.btn_ok.clicked.connect(lambda: self.close_window('arrive'))
 
+        self.certify_window = QDialog()
+        uic.loadUi('./UI/face_certify.ui', self.certify_window)
+        self.certify_window.capture.clicked.connect(self.capture)
+        w, h = self.certify_window.frame.width(), self.certify_window.frame.height()
+        self.frame_pixmap = QPixmap(w, h)
+
+        self.name_alert_window = QDialog()
+        uic.loadUi('./UI/name_alert.ui', self.name_alert_window)
+        self.name_alert_window.alert_ok.clicked.connect(lambda: self.close_window('name_alert'))
+
+        self.face_alert_window = QDialog()
+        uic.loadUi('./UI/face_alert.ui', self.face_alert_window)
+        self.face_alert_window.alert_ok.clicked.connect(lambda: self.close_window('face_alert'))
+
 
     def close_window(self, dialog):
         if dialog=='return':
@@ -241,6 +257,12 @@ class User_Server(Init_User_Server):
             self.position_window.p_y = 0
         elif dialog=='arrive':
             self.arrive_window.close()
+        elif dialog=='certify':
+            self.certify_window.close()
+        elif dialog=='name_alert':
+            self.name_alert_window.close()
+        elif dialog=='face_alert':
+            self.face_alert_window.close()
 
     def add_img(self):
         img_path = QFileDialog.getOpenFileName(self, 'Open file', './', 'Image files (*.jpg *.png)')[0]
@@ -266,50 +288,78 @@ class User_Server(Init_User_Server):
         self.close_window('renting')
 
     def checking_user(self):
-        # self.video = cv2.VideoCapture(-1)
-        # self.face_thread.start()
-        # self.face_thread.running = True
+        self.video = cv2.VideoCapture(-1)
+        self.face_thread.start()
+        self.face_thread.running = True
+        if self.is_capturing:
+            self.certify_window.capture.show()
+        else:
+            self.certify_window.capture.hide()
         # user = self.memdb.member_dict[self.memdb.IDPW[self.USER_ID][1]]
-        user = self.memdb.member_dict[self.memdb.IDPW['pinky'][1]]
-        self.face_recognition_model.set_user_image(user.img_path)
-        self.face_recognition_model.set_known_user(user.img_path, user.name)
+        self.certify_window.show()
+
+    def capture_image(self):
+        self.is_capturing = True
+        self.checking_user()
+
+    def capture(self):
+        if self.register_window.name == '':
+            self.name_alert_window.show()
+            return
+        
+        face_encodings = face_recognition.face_encodings(self.image)
+        if len(face_encodings) == 0:
+            self.face_alert_window.show()
+            return
+        
+        frame = self.face_detection(self.image)
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        h, w, c = frame.shape
+        qImg = QImage(frame, w, h, w*c, QImage.Format_RGB888)
+        self.frame_pixmap = self.frame_pixmap.fromImage(qImg)
+        w, h = self.register_window.image_frame.width(), self.register_window.image_frame.height()
+        self.frame_pixmap = self.frame_pixmap.scaled(w, h)
+        self.register_window.image_frame.setPixmap(self.frame_pixmap)
+
+        name = self.register_window.id.text().strip()
+        filename = os.path.join('Face', name + '.png')
+        self.register_window.img_path.setText(filename)
+        cv2.imwrite(filename, self.image)
+
+        self.is_capturing = False
+        self.close_window('certify')
+        self.face_thread.stop()
+        self.face_thread.running = False
+        self.video.release()
 
     def matching_face(self):
         ret, frame = self.video.read()
 
         if ret:
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             frame = cv2.flip(frame, 1)
+            self.image = frame
 
-            face_locations = face_recognition.face_locations(frame)
-            face_encodings = face_recognition.face_encodings(frame, face_locations)
-
-            face_names = []
-            for face_encoding in face_encodings:
-                matches = face_recognition.compare_faces(self.face_recognition_model.known_face_encodings, face_encoding)
-                name = "Unknown"
-
-                face_distances = face_recognition.face_distance(self.face_recognition_model.known_face_encodings, face_encoding)
-                best_match_index = np.argmin(face_distances)
-
-                if matches[best_match_index]:
-                    name = self.face_recognition_model.known_face_names[best_match_index]
-
-                face_names.append(name)
-
-            for (top, right, bottom, left), face_name in zip(face_locations, face_names):
-                top *= 4
-                right *= 4
-                bottom *= 4
-                left *= 4
-
-                cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
-                cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
-                font = cv2.FONT_HERSHEY_DUPLEX
-                cv2.putText(frame, face_name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
-
-            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-
+            if not self.is_capturing:
+                try:
+                    face_locations, face_names = self.face_recognition_model.face_athentication(frame)
+                    self.face_recognition_model.draw_boxes(frame, face_locations, face_names)
+                except:
+                    pass
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            h, w, c = frame.shape
+            qImg = QImage(frame, w, h, w*c, QImage.Format_RGB888)
+            self.frame_pixmap = self.frame_pixmap.fromImage(qImg)
+            w, h = self.certify_window.frame.width(), self.certify_window.frame.height()
+            self.frame_pixmap = self.frame_pixmap.scaled(w, h)
+            self.certify_window.frame.setPixmap(self.frame_pixmap)
+            # self.certify_window.frame = self.certify_window.frame.scaled(300, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            # self
+        # if face_names != 'Unknown':
+        #     self.close_window('certify')
+        #     self.face_thread.stop()
+        #     self.face_thread.running = False
+            # self.video.release()
 
 
     def checking_inside(self):
@@ -434,7 +484,11 @@ class User_Server(Init_User_Server):
                     self.is_login = True
                     self.password = ''
                     self.before_len = 0
+                    user = self.memdb.member_dict[self.memdb.IDPW[id][1]]
+                    self.face_recognition_model.set_user_image(user.img_path)
+                    self.face_recognition_model.set_known_user(self.face_recognition_model.my_face_encoding, user.name)
                     self.popup_window("main_window")
+
                 else:
                     self.pw_alert.show()
                     self.password = ''
@@ -501,7 +555,7 @@ class User_Server(Init_User_Server):
         self.map_thread = Thread(sec=0.5)
         self.map_thread.data.connect(self.update_map)
 
-        self.face_thread = Thread(sec=0.3)
+        self.face_thread = Thread(sec=0.1)
         self.face_thread.data.connect(self.matching_face)
 
     def update_map(self):

@@ -16,15 +16,40 @@ class FaceRecognitionModel():
         super().__init__()
         self.known_face_encodings = []
         self.known_face_names = []
+        self.face_detection = DetectionModel()
 
     def set_user_image(self, path):
         self.my_image = face_recognition.load_image_file(path)
-        print(self.my_image)
-        self.my_face_encoding = face_recognition.face_encodings(self.my_image)#[0]
+        self.my_face_encoding = face_recognition.face_encodings(self.my_image)
 
     def set_known_user(self, encoding, name):
         self.known_face_encodings.append(encoding)
         self.known_face_names.append(name)
+
+    def face_athentication(self, frame):
+        frame, bbox = self.face_detection(frame)
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) 
+        face_encodings = face_recognition.face_encodings(frame)
+
+        face_names = []
+        for face_encoding in face_encodings:
+            matches = face_recognition.compare_faces(self.known_face_encodings[0], face_encoding, tolerance=0.35)
+            name = "unknown"
+
+            if True in matches:
+                first_match_index = matches.index(True)
+                name = self.known_face_names[first_match_index]
+
+            face_names.append(name)
+
+        return bbox, face_names
+
+    def draw_boxes(self, frame, face_locations, face_names):
+        for (top, right, bottom, left), name in zip(face_locations, face_names):
+            cv2.rectangle(frame, (left, top), (right, bottom), (200, 100, 5), 2)
+            cv2.rectangle(frame, (left, bottom), (right, bottom), (200, 100, 5), cv2.FILLED)
+            font = cv2.FONT_HERSHEY_DUPLEX
+            cv2.putText(frame, name, (left + 6, bottom - 6), font, .5, (255, 255, 255), 1)
 
 
 class DrowseDetectionModel(nn.Module):
@@ -55,16 +80,17 @@ class DrowseDetectionModel(nn.Module):
         return x
     
 class DetectionModel(nn.Module):
-        def __init__(self):
-            super().__init__()
-            model_path = hf_hub_download(repo_id="arnabdhar/YOLOv8-Face-Detection", filename="model.pt")
-            self.FaceDetection = YOLO(model_path)
+    def __init__(self):
+        super().__init__()
+        model_path = hf_hub_download(repo_id="arnabdhar/YOLOv8-Face-Detection", filename="model.pt")
+        self.FaceDetection = YOLO(model_path)
 
-        def forward(self, x):
-            output = self.FaceDetection(x, verbose=False)
-            results = Detections.from_ultralytics(output[0])
-            bbox = results.xyxy[0].astype(int) + np.array([-40, -60, 40, 10])
-            return bbox
+    def forward(self, x):
+        output = self.FaceDetection(x, verbose=False)
+        results = Detections.from_ultralytics(output[0])
+        bbox = results.xyxy[0].astype(int) + np.array([-40, -60, 40, 10])
+        x = x[bbox[1]:bbox[3], bbox[0]:bbox[2]]
+        return x, bbox
 
  
 
@@ -95,7 +121,7 @@ if __name__ == '__main__':
             for face_encoding in face_encodings:
                 matches = face_recognition.compare_faces(face_recognition_model.known_face_encodings, face_encoding, tolerance=0.35)
                 print(matches)
-                name = "unknown"
+                name = "unknown" 
 
                 if True in matches:
                     first_match_index = matches.index(True)
