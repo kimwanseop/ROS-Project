@@ -13,7 +13,7 @@ class PathPlanning():
     def __init__(self, map_path='./Images/asap_map_resized.pgm', middle_path='./Images/asap_map_middleLine.png'):
         self.MOVES = [(-1, 0), (1, 0), (0, -1), (0, 1)]
         self.map = cv2.imread(map_path, cv2.COLOR_BGR2GRAY)
-        self.middle = cv2.imread(middle_path, cv2.COLOR_BGR2GRAY)
+        self.middle = cv2.imread(middle_path, cv2.IMREAD_GRAYSCALE)
         self.grid = None 
         self.background = None
         crop_size = 16

@@ -1,9 +1,13 @@
 import os 
 import sys 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import time 
 import rclpy
 import numpy as np 
 import copy
+import cv2
+import face_recognition
+
 from Thread import Thread, CarThread
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -17,6 +21,7 @@ from DB.Car import Car
 from DB.Member import Member
 from Control_CAR import MyCar
 from PathPlanner import PathPlanning
+from Recognition import FaceRecognitionModel
 
 
 class GetPosition(QDialog):
@@ -24,28 +29,41 @@ class GetPosition(QDialog):
         super().__init__()
         self.pixmap = pixmap
         self.p_x, self.p_y = None, None
-
+        
     def mousePressEvent(self, event):
+        pos_area1 = self.ban_area_1.geometry()
+        pos_area2 = self.ban_area_2.geometry()
+        pos_area3 = self.ban_area_3.geometry()
+        ban_areas = [[pos_area1.x(), pos_area1.y()-80, pos_area1.width()+pos_area1.x(), pos_area1.height() + pos_area1.y()-80],
+                     [pos_area2.x(), pos_area2.y()-80, pos_area2.width()+pos_area2.x(), pos_area2.height() + pos_area2.y()-80],
+                     [pos_area3.x(), pos_area3.y()-80, pos_area3.width()+pos_area3.x(), pos_area3.height() + pos_area3.y()-80]]
+        
         if event.button() == Qt.LeftButton:
             real_x, real_y = event.x(), event.y()
             x, y = real_x-10 , real_y-90
             if x<0 or y<0:
                 x, y = '', ''
-            elif x>391 or y>631:
+            elif x>381 or y>541:
                 x, y = '', ''
+            if not(x=='' or y==''):
+                for ban_area in ban_areas:
+                    if (x>int(ban_area[0]) and x<int(ban_area[2])) and (y>int(ban_area[1]) and y<int(ban_area[3])):
+                        x, y = '', ''
+                        break
             
             self.pos_x.setText(str(x))
             self.pos_y.setText(str(y))
             self.map.setPixmap(self.pixmap)
 
-            if not(x=='' or y==''):
-                k = 7.445
-                self.p_x, self.p_y = x, y
-                painter = QPainter(self.map.pixmap())
-                painter.setPen(QPen(Qt.red, 5))
-                painter.setBrush(QBrush(Qt.red))
-                painter.drawEllipse(int((x-8)*k), int((y-5)*k), 100, 100)
-            
+            k = 7.445
+            self.p_x, self.p_y = x, y
+
+            if x=='' or y=='':
+                x,y = 0,0
+            painter = QPainter(self.map.pixmap())
+            painter.setPen(QPen(Qt.blue, 5))
+            painter.setBrush(QBrush(Qt.blue))
+            painter.drawEllipse(int((x-8)*k), int((y-5)*k), 100, 100)
                     
 
 class User_Server(Init_User_Server):
@@ -68,10 +86,16 @@ class User_Server(Init_User_Server):
         self.password = ''
         self.before_len = 0
         self.origin_x, self.origin_y = 215, 306
-        self.pathplanner = PathPlanning()
         self.goal_x, self.goal_y = None, None,
-        self.all_path, self.all_path2, self.waypoints = None, None, None
+        self.all_path, self.waypoints = None, None
         self.is_arrive = False
+        self.is_goal = False
+        self.is_auto_driving = False
+        self.USER_ID = None
+
+        self.pathplanner = PathPlanning()
+
+        self.face_recognition_model = FaceRecognitionModel()
         
     def init_btns(self):
         self.btn_return.clicked.connect(self.checking_inside)
@@ -79,6 +103,7 @@ class User_Server(Init_User_Server):
         self.register_2.clicked.connect(self.register_member)
         self.btn_logout.clicked.connect(self.logout)
         self.btn_rent.clicked.connect(self.btn_call_car)
+        self.btn_board.clicked.connect(self.checking_user)
 
         self.btn_back.clicked.connect(self.go_back)
         self.btn_home.clicked.connect(lambda: self.popup_window('main_window'))
@@ -162,6 +187,9 @@ class User_Server(Init_User_Server):
         self.checkinside = QDialog()
         uic.loadUi('./UI/return_check.ui', self.checkinside)
         self.checkinside.pushButton.clicked.connect(self.checking)
+        # self.checkinside.btn_cancel.clicked.connect(lambda: self.close_window('return'))
+        self.checkinside.btn_cancel.clicked.connect(self.checking_user)
+        
 
         self.loginWindow = QDialog()
         uic.loadUi('./UI/login_alert.ui', self.loginWindow)
@@ -177,6 +205,10 @@ class User_Server(Init_User_Server):
         uic.loadUi('./UI/select_position.ui', self.position_window)
         self.position_window.btn_call.clicked.connect(self.renting_car)
         self.position_window.btn_cancel.clicked.connect(lambda: self.close_window('position'))
+
+        self.arrive_window = QDialog()
+        uic.loadUi('./UI/arrive.ui', self.arrive_window)
+        self.arrive_window.btn_ok.clicked.connect(lambda: self.close_window('arrive'))
 
 
     def close_window(self, dialog):
@@ -205,9 +237,10 @@ class User_Server(Init_User_Server):
             self.position_window.pos_x.setText('')
             self.position_window.pos_y.setText('')
             self.position_window.map.setPixmap(self.pixmap)
-            self.position_window.p_x = None
-            self.position_window.p_y = None
-
+            self.position_window.p_x = 0
+            self.position_window.p_y = 0
+        elif dialog=='arrive':
+            self.arrive_window.close()
 
     def add_img(self):
         img_path = QFileDialog.getOpenFileName(self, 'Open file', './', 'Image files (*.jpg *.png)')[0]
@@ -231,6 +264,53 @@ class User_Server(Init_User_Server):
     def select_position(self):
         self.position_window.show()
         self.close_window('renting')
+
+    def checking_user(self):
+        # self.video = cv2.VideoCapture(-1)
+        # self.face_thread.start()
+        # self.face_thread.running = True
+        # user = self.memdb.member_dict[self.memdb.IDPW[self.USER_ID][1]]
+        user = self.memdb.member_dict[self.memdb.IDPW['pinky'][1]]
+        self.face_recognition_model.set_user_image(user.img_path)
+        self.face_recognition_model.set_known_user(user.img_path, user.name)
+
+    def matching_face(self):
+        ret, frame = self.video.read()
+
+        if ret:
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frame = cv2.flip(frame, 1)
+
+            face_locations = face_recognition.face_locations(frame)
+            face_encodings = face_recognition.face_encodings(frame, face_locations)
+
+            face_names = []
+            for face_encoding in face_encodings:
+                matches = face_recognition.compare_faces(self.face_recognition_model.known_face_encodings, face_encoding)
+                name = "Unknown"
+
+                face_distances = face_recognition.face_distance(self.face_recognition_model.known_face_encodings, face_encoding)
+                best_match_index = np.argmin(face_distances)
+
+                if matches[best_match_index]:
+                    name = self.face_recognition_model.known_face_names[best_match_index]
+
+                face_names.append(name)
+
+            for (top, right, bottom, left), face_name in zip(face_locations, face_names):
+                top *= 4
+                right *= 4
+                bottom *= 4
+                left *= 4
+
+                cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
+                cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
+                font = cv2.FONT_HERSHEY_DUPLEX
+                cv2.putText(frame, face_name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
+
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+
 
     def checking_inside(self):
         self.checkinside.show()
@@ -260,7 +340,12 @@ class User_Server(Init_User_Server):
 
         self.myCar = MyCar()
         rclpy.spin(self.myCar)
-        
+
+    def set_arrive(self):
+        self.is_arrive = False 
+        self.all_path, self.waypoints = None, None
+        self.arrive_window.show()
+
 
     def renting_car(self):
         self.is_renting = True 
@@ -344,7 +429,8 @@ class User_Server(Init_User_Server):
                 self.PW.setText('')
         else:
             if id in self.memdb.IDPW:
-                if self.password == self.memdb.IDPW[id]:
+                if self.password == self.memdb.IDPW[id][0]:
+                    self.USER_ID = id
                     self.is_login = True
                     self.password = ''
                     self.before_len = 0
@@ -381,7 +467,7 @@ class User_Server(Init_User_Server):
     def keyPressEvent(self, event):
         linear_x = 0.3
         angular_z = 1.
-        if event.key() == Qt.Key_W:
+        if event.key() == Qt.Key_W: 
             self.myCar.msg.linear.x = linear_x
             self.myCar.msg.angular.z = 0.
         elif event.key() == Qt.Key_Q:
@@ -404,8 +490,8 @@ class User_Server(Init_User_Server):
         elif event.key() == Qt.Key_D:
             self.myCar.msg.angular.z = -angular_z
         elif event.key() == Qt.Key_S:
-            self.myCar.msg.linear.x = 0.
-            self.myCar.msg.angular.z = 0.
+            self.myCar.msg.linear.x = 0.                        
+            self.myCar.msg.angular.z = 0.                                           
         
 
     def set_Threads(self):
@@ -414,6 +500,9 @@ class User_Server(Init_User_Server):
         
         self.map_thread = Thread(sec=0.5)
         self.map_thread.data.connect(self.update_map)
+
+        self.face_thread = Thread(sec=0.3)
+        self.face_thread.data.connect(self.matching_face)
 
     def update_map(self):
         try:
@@ -431,53 +520,60 @@ class User_Server(Init_User_Server):
             pos_y = (self.origin_y - (py + pos_y)*100)-18
 
             plan_x, plan_y = int(pos_x*(183/(self.origin_x  - 16*2)))+5, int(pos_y*(270/(self.origin_y  - 18*2)))
-
+            
             if self.all_path is None or self.waypoints is None:
                 origin_x = 184
                 origin_y = 270
                 self.all_path, self.waypoints = self.pathplanner.generate_waypoint((plan_x, plan_y), (self.goal_x, self.goal_y))
+                self.is_goal = True
                 for i in range(len(self.all_path)):
                     self.all_path[i][0] = int(self.all_path[i][0] * (-0.2 + self.map_w/origin_x))
                     self.all_path[i][1] = int((self.all_path[i][1]-2) * (0.6+self.map_h/origin_y))
-
 
             pos_x = int((pos_x) * (self.map_w/(self.origin_x  - 16*2)))
             pos_y = int((pos_y) * (self.map_h/(self.origin_y - 18*2)))
             goal_x = int((self.goal_x-4) * (self.map_w/self.origin_x))
             goal_y = int((self.goal_y-5) * (self.map_h/self.origin_y))
 
-            self.map_frame.setPixmap(self.pixmap)
-            painter = QPainter(self.map_frame.pixmap())
-
             self.all_path[0] = [pos_y+50, pos_x+50]
             self.all_path[-1] = [goal_y+50, goal_x+50]
-                
-            for i in range(len(self.all_path)-1):
-                painter.setPen(QPen(Qt.green, 20))
-                painter.setBrush(QBrush(Qt.green))
-                cur_points = self.all_path[i]
-                next_points = self.all_path[i+1]
-                cur_x, cur_y = cur_points
-                next_x, next_y = next_points
-                
-                painter.drawLine(cur_y, cur_x, next_y, next_x)
 
-            painter.setPen(QPen(Qt.red, 5))
-            painter.setBrush(QBrush(Qt.red))
-            painter.drawEllipse(pos_x, pos_y, 100, 100)
-            
-            if not self.is_arrive:
-                painter.setPen(QPen(Qt.blue, 5))
-                painter.setBrush(QBrush(Qt.blue))
-                painter.drawEllipse(goal_x, goal_y, 100, 100)
-            painter.end()
+            if self.is_renting or self.is_goal:
+                self.map_frame.setPixmap(self.pixmap)
+                painter = QPainter(self.map_frame.pixmap())
+                for i in range(len(self.all_path)-1):
+                    painter.setPen(QPen(Qt.green, 20))
+                    painter.setBrush(QBrush(Qt.green))
+                    cur_points = self.all_path[i]
+                    next_points = self.all_path[i+1]
+                    cur_x, cur_y = cur_points
+                    next_x, next_y = next_points
+                    painter.drawLine(cur_y, cur_x, next_y, next_x)
+
+                painter.setPen(QPen(Qt.red, 5))
+                painter.setBrush(QBrush(Qt.red))
+                painter.drawEllipse(pos_x, pos_y, 100, 100)
+
+                if not self.is_arrive:
+                    painter.setPen(QPen(Qt.blue, 5))
+                    painter.setBrush(QBrush(Qt.blue))
+                    painter.drawEllipse(goal_x, goal_y, 100, 100)
+                painter.end()
+            else:
+                for i in range(len(self.all_path)-1):
+                    cur_points = self.all_path[i]
+                    next_points = self.all_path[i+1]
+                    cur_x, cur_y = cur_points
+                    next_x, next_y = next_points
 
             if len(self.all_path) == 1:
                 self.is_arrive = True
+                self.is_goal = False
                 self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[0][1], self.all_path[0][0], z, w, self.is_arrive}'
+                self.set_arrive()
             else:
                 self.is_arrive = False
-                if np.linalg.norm(self.all_path[0] - self.all_path[1]) < 150:
+                if np.linalg.norm(self.all_path[0] - self.all_path[1]) < 200:
                     self.all_path = self.all_path[1:]
                 self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[1][1], self.all_path[1][0], z, w, self.is_arrive}'
         except:

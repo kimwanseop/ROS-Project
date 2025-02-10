@@ -1,4 +1,5 @@
 import rclpy
+import copy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float32, String
@@ -15,11 +16,14 @@ class MyCar(Node):
         self.create_subscription(PoseStamped, '/tracked_pose', self.pose_callback, 10)
 
         self.msg = Twist()
+        self.temp_msg = None
         self.battery = 0
         self.waypoint = String()
 
     def timer_callback(self):
-        self.publisher.publish(self.msg)
+        if self.temp_msg != self.msg:
+            self.temp_msg = copy.deepcopy(self.msg)
+            self.publisher.publish(self.msg)
 
     def timer_callback2(self):
         self.pub_waypoint.publish(self.waypoint)

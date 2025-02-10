@@ -46,7 +46,7 @@ class MemberDB(ASAP_DB):
 
     def update_data(self, member:Member, member_code):
         self.member_dict[member_code] = member
-        self.IDPW[member.ID] = member.PW
+        self.IDPW[member.ID] = (member.PW, member_code)
         print(self.IDPW)
         if member.name not in self.name:
             self.name[member.name] = [member_code]

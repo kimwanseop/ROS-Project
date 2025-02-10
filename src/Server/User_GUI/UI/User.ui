@@ -16,10 +16,10 @@
   <widget class="QLabel" name="background">
    <property name="geometry">
     <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>401</width>
-     <height>671</height>
+     <x>-50</x>
+     <y>50</y>
+     <width>491</width>
+     <height>541</height>
     </rect>
    </property>
    <property name="styleSheet">
@@ -27,6 +27,12 @@
    </property>
    <property name="text">
     <string/>
+   </property>
+   <property name="pixmap">
+    <pixmap>../../GM_GUI/Image/ASAP_LOGO.jpg</pixmap>
+   </property>
+   <property name="scaledContents">
+    <bool>true</bool>
    </property>
   </widget>
   <widget class="QPushButton" name="setting">
@@ -114,14 +120,19 @@ font: 14pt &quot;Ubuntu&quot;;</string>
     <property name="geometry">
      <rect>
       <x>110</x>
-      <y>200</y>
+      <y>520</y>
       <width>161</width>
-      <height>161</height>
+      <height>51</height>
      </rect>
     </property>
     <property name="styleSheet">
-     <string notr="true">background-color: rgb(200, 200, 200);
-border-radius: 80px; font: 30pt &quot;Ubuntu&quot;</string>
+     <string notr="true">background-color: rgb(37, 37, 37);
+border-radius: 25px; font: bold 23pt &quot;Ubuntu&quot;;
+border: 3px solid white;
+color: white;</string>
+    </property>
+    <property name="frameShape">
+     <enum>QFrame::NoFrame</enum>
     </property>
     <property name="text">
      <string>start</string>
@@ -160,9 +171,9 @@ border-radius: 80px; font: 30pt &quot;Ubuntu&quot;</string>
     <property name="geometry">
      <rect>
       <x>110</x>
-      <y>200</y>
+      <y>520</y>
       <width>161</width>
-      <height>161</height>
+      <height>51</height>
      </rect>
     </property>
     <property name="styleSheet">
@@ -220,7 +231,7 @@ QPushButton:pressed {
      <string/>
     </property>
     <property name="pixmap">
-     <pixmap>../../../../../.designer/Images/map.jpg</pixmap>
+     <pixmap>../Images/map.jpg</pixmap>
     </property>
     <property name="scaledContents">
      <bool>true</bool>
@@ -300,6 +311,19 @@ border-radius: 3px;</string>
     </property>
     <property name="text">
      <string/>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="btn_board">
+    <property name="geometry">
+     <rect>
+      <x>120</x>
+      <y>0</y>
+      <width>80</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>탑승</string>
     </property>
    </widget>
   </widget>
@@ -648,16 +672,39 @@ border-radius: 5px;</string>
    <zorder>battery_green_2</zorder>
    <zorder>label_4</zorder>
   </widget>
+  <widget class="QLabel" name="background_2">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>401</width>
+     <height>601</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">background-color: rgb(59, 59, 59);</string>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="pixmap">
+    <pixmap>../../GM_GUI/Image/ASAP_LOGO.jpg</pixmap>
+   </property>
+   <property name="scaledContents">
+    <bool>true</bool>
+   </property>
+  </widget>
+  <zorder>background_2</zorder>
   <zorder>background</zorder>
   <zorder>setting</zorder>
   <zorder>my_info</zorder>
   <zorder>car_info</zorder>
   <zorder>map_info</zorder>
-  <zorder>start_widget</zorder>
-  <zorder>select_car_widget</zorder>
   <zorder>login_widget</zorder>
   <zorder>car_widget</zorder>
   <zorder>map_widget</zorder>
+  <zorder>select_car_widget</zorder>
+  <zorder>start_widget</zorder>
   <zorder>btn_logout</zorder>
   <zorder>btn_home</zorder>
  </widget>

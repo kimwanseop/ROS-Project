@@ -153,12 +153,78 @@ color: white;</string>
      <set>Qt::AlignCenter</set>
     </property>
    </widget>
+   <widget class="QLabel" name="ban_area_1">
+    <property name="geometry">
+     <rect>
+      <x>5</x>
+      <y>316</y>
+      <width>110</width>
+      <height>126</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: rgba(255, 0, 0, 100);
+color: white;
+font: bold 15px;</string>
+    </property>
+    <property name="text">
+     <string>호출 금지</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QLabel" name="ban_area_2">
+    <property name="geometry">
+     <rect>
+      <x>305</x>
+      <y>316</y>
+      <width>70</width>
+      <height>123</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: rgba(255, 0, 0, 100);
+color: white;
+font: bold 15px;</string>
+    </property>
+    <property name="text">
+     <string>호출 금지</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QLabel" name="ban_area_3">
+    <property name="geometry">
+     <rect>
+      <x>168</x>
+      <y>536</y>
+      <width>81</width>
+      <height>81</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: rgba(255, 0, 0, 100);
+color: white;
+font: bold 15px;</string>
+    </property>
+    <property name="text">
+     <string>호출 금지</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
+    </property>
+   </widget>
    <zorder>label_2</zorder>
    <zorder>pos_x</zorder>
    <zorder>pos_y</zorder>
    <zorder>pos_x_2</zorder>
    <zorder>pos_x_3</zorder>
    <zorder>map</zorder>
+   <zorder>ban_area_1</zorder>
+   <zorder>ban_area_2</zorder>
+   <zorder>ban_area_3</zorder>
   </widget>
   <widget class="QPushButton" name="btn_call">
    <property name="geometry">

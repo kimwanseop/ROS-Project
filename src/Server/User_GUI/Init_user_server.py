@@ -48,6 +48,7 @@ class Init_User_Server(QMainWindow, form_class):
     def initalize(self):
         self.is_login=False 
         self.is_renting = False
+        self.is_boarding = False
         self.map_frame.setPixmap(QPixmap("./Images/map.jpg"))
         self.show_main_window() 
         self.hide_map_window()
@@ -102,6 +103,10 @@ class Init_User_Server(QMainWindow, form_class):
             self.battery_bg.show()
             self.battery_green.show()
             self.battery_percent.show()
+            if self.is_boarding:
+                self.btn_board.show()
+            else:
+                self.btn_board.hide()
             # self.map_thread.start()
         else:
             self.btn_return.hide()
@@ -109,6 +114,7 @@ class Init_User_Server(QMainWindow, form_class):
             self.battery_bg.hide()
             self.battery_green.hide()
             self.battery_percent.hide()
+            self.btn_board.hide()
 
     def hide_map_window(self):
         self.map_widget.hide()

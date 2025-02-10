@@ -925,6 +925,25 @@ background-color: rgb(12, 121, 122);</string>
 </string>
    </property>
   </widget>
+  <widget class="QLabel" name="user_map">
+   <property name="geometry">
+    <rect>
+     <x>1220</x>
+     <y>70</y>
+     <width>381</width>
+     <height>541</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="pixmap">
+    <pixmap>../../User_GUI/Images/map.jpg</pixmap>
+   </property>
+   <property name="scaledContents">
+    <bool>true</bool>
+   </property>
+  </widget>
   <zorder>Background</zorder>
   <zorder>label</zorder>
   <zorder>init_logo</zorder>
@@ -963,6 +982,7 @@ background-color: rgb(12, 121, 122);</string>
   <zorder>RT_loc_info</zorder>
   <zorder>Manage_car</zorder>
   <zorder>Static</zorder>
+  <zorder>user_map</zorder>
  </widget>
  <resources/>
  <connections/>
