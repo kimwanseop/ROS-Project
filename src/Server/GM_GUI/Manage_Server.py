@@ -163,7 +163,7 @@ class Manage_Server(Init_Manage_Server, form_class):
         car_informations = self.cardb.get_data('car', 'car_number, pos', 'is_rented=1')
         self.map_frame.setPixmap(self.pixmap)
         try:
-            origin_x, origin_y = 215, 306
+            origin_x, origin_y = 215-16*2, 306-16*2-4
             px, py = 0.84, 0.94
             
             painter = QPainter(self.map_frame.pixmap())
@@ -172,8 +172,10 @@ class Manage_Server(Init_Manage_Server, form_class):
                 pos = pos.split(',')
                 pos_x, pos_y = float(pos[0]), float(pos[1])
 
-                pos_x = int((px + pos_x-0.1)*100 * (self.map_h/origin_x))
-                pos_y = int(((py + pos_y-0.08)*100) * (self.map_w/origin_y))
+                pos_x = (px + pos_x)*100 - 18
+                pos_x = int(pos_x * (self.map_h/origin_x))
+                pos_y = ((py + pos_y)*100) - 20
+                pos_y = int(pos_y * (self.map_w/origin_y))
                 pos_x, pos_y = pos_y, pos_x
                 print(pos_x, pos_y)
                 painter.setPen(QPen(Qt.red, 5))

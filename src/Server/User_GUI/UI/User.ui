@@ -398,6 +398,14 @@ border-radius: 3px;</string>
      <set>Qt::AlignCenter</set>
     </property>
    </widget>
+   <zorder>map_frame</zorder>
+   <zorder>btn_rent</zorder>
+   <zorder>battery_bg</zorder>
+   <zorder>battery_percent</zorder>
+   <zorder>battery_green</zorder>
+   <zorder>select_mode</zorder>
+   <zorder>center_area</zorder>
+   <zorder>btn_return</zorder>
   </widget>
   <widget class="QWidget" name="login_widget" native="true">
    <property name="geometry">

@@ -20,7 +20,7 @@ from Init_user_server import Init_User_Server
 from DB.Car import Car
 from DB.Member import Member
 from Control_CAR import MyCar
-from PathPlanner import PathPlanning
+from PathPlanner3 import PathPlanning
 # from PathPlanner import PathPlanning
 from Recognition import FaceRecognitionModel, DetectionModel
 
@@ -82,10 +82,12 @@ class User_Server(Init_User_Server):
 
     def init_parameters(self):
         self.popup_window('main_window')
+        self.ROS_DOMAIN_ID = None
         self.is_capturing = False
         self.is_start=False
         self.is_center=True
-        
+        self.is_return=False
+        self.lose_path = False
         self.passwords = {}
         self.password = ''
         self.before_len = 0
@@ -176,6 +178,23 @@ class User_Server(Init_User_Server):
                 self.car_name_listup()
         else:      
             self.car_name_listup(search_text, info_type=search_type)
+
+    def popup_window(self, window_type):
+        self.cardb.init_db()
+        self.is_login=True
+        if self.is_login or window_type=='main_window' or window_type=='login':
+            for key, value in self.WINDOW_TYPES.items():
+                if key == window_type:
+                    if self.WINDOW_TYPES[key]==False:
+                        self.OPEN_WINDOW[key]()
+
+                    self.WINDOW_TYPES[key] = True
+                else:
+                    if self.WINDOW_TYPES[key]==True:
+                        self.HIDE_WINDOW[key]()
+                    self.WINDOW_TYPES[key] = False
+        else:
+            self.loginWindow.show()
 
     def init_uic(self):
         self.register_window = QDialog()
@@ -284,9 +303,12 @@ class User_Server(Init_User_Server):
         if self.is_auto_driving:
             self.select_mode.setText('수동 주행')
             self.is_auto_driving = False
+            self.is_arrive = True
+            self.all_path = []
+
         else:
-            self.select_mode.setText('자동 주행')
-            self.is_auto_driving = True
+            self.position_window.show()
+            
 
     def add_img(self):
         img_path = QFileDialog.getOpenFileName(self, 'Open file', './', 'Image files (*.jpg *.png)')[0]
@@ -389,14 +411,29 @@ class User_Server(Init_User_Server):
                 self.video.release()
                 self.auther_check_window.show()
                 self.is_auther_check = True
+                self.is_boarding = True
+                
                 self.popup_window('map')
 
 
+    
+    def arrive_center(self):
+        self.is_center = True
+        self.is_boarding = False
+        self.checking()
+
     def checking_inside(self):
         self.checkinside.show()
+        self.close_window('return')
+        self.popup_window('main_window')
+        self.is_renting = False
+        self.is_return = True
+        self.is_arrive = False
+        self.renting_car()
+
         
     def checking(self):
-        self.is_renting = False
+        self.ROS_DOMAIN_ID = None
         self.is_auther_check = False
         self.is_arrive = False
         self.car_thread.stop()
@@ -405,8 +442,8 @@ class User_Server(Init_User_Server):
         self.map_thread.stop()
         self.cardb.update_values('car', 'is_rented=0', f'car_number="{str(self.rentcar_number)}"')
         rclpy.shutdown()
-        self.close_window('return')
-        self.popup_window('main_window')
+        # self.close_window('return')
+        # self.popup_window('main_window')
         self.rentcar_number = None 
         self.all_path, self.waypoints = None, None
     
@@ -426,38 +463,59 @@ class User_Server(Init_User_Server):
     def set_arrive(self):
         self.is_auther_check = True
         self.is_auto_driving = False
-        self.all_path, self.waypoints = None, None
+        self.select_mode.setText('수동 주행')
+        self.select_mode.setEnabled(True)
+        self.all_path = []
+        self.is_arrive = True
+        
         self.arrive_window.show()
-        self.popup_window('main_window')
+        if not self.is_boarding:
+            self.popup_window('main_window')
 
 
     def renting_car(self):
-        self.is_renting = True 
+        self.select_mode.setText('자동 주행')
         self.is_auto_driving = True
+        
+        if not self.is_boarding:
+            self.select_mode.setEnabled(False)
+
+        self.is_arrive = False
+        self.all_path = None
+
+        if self.is_return:
+            self.is_renting = False
+            self.goal_x, self.goal_y = 0, 0
+            self.popup_window('main_window')
+
         goal_x, goal_y = self.position_window.p_x, self.position_window.p_y
         w, h = self.position_window.map.width(), self.position_window.map.height()
-        # self.goal_x = goal_x*(self.origin_x/w)
-        # self.goal_y = goal_y*(self.origin_y/h)
+
         self.goal_x = goal_x*(self.croped_x/w)
         self.goal_y = goal_y*(self.croped_y/h)
-        
-        self.close_window('position')        
-        self.cardb.update_values('car', 'is_rented=1', f'car_number="{str(self.rentcar_number)}"')
-        self.close_window('renting')
-        self.popup_window('map')
 
-        car = self.cardb.car_dict[self.rentcar_number]
-        ROS_DOMAIN_ID = car.pin_number
+        if self.ROS_DOMAIN_ID == None:
+            self.is_renting = True 
+            self.close_window('position')        
+            self.cardb.update_values('car', 'is_rented=1', f'car_number="{str(self.rentcar_number)}"')
+            self.close_window('renting')
+            self.popup_window('map')
+            car = self.cardb.car_dict[self.rentcar_number]
+            self.ROS_DOMAIN_ID = car.pin_number
 
-        os.environ['ROS_DOMAIN_ID'] = ROS_DOMAIN_ID
-        self.car_thread = CarThread(target=self.running_car)
-        self.car_thread.start()
-        self.car_thread.running = True
-        self.battery_check.start()
-        self.battery_check.running = True
-        self.map_thread.start()
-        self.map_thread.running = True
-
+            os.environ['ROS_DOMAIN_ID'] = self.ROS_DOMAIN_ID
+            self.car_thread = CarThread(target=self.running_car)
+            self.car_thread.start()
+            self.car_thread.running = True
+            self.battery_check.start()
+            self.battery_check.running = True
+            self.map_thread.start()
+            self.map_thread.running = True
+        else:
+            self.close_window('position')        
+            self.cardb.update_values('car', 'is_rented=1', f'car_number="{str(self.rentcar_number)}"')
+            self.close_window('renting')
+            self.popup_window('map')
 
     def update_battery(self):
         car = self.cardb.car_dict[self.rentcar_number]
@@ -484,23 +542,6 @@ class User_Server(Init_User_Server):
         self.renting_window.show()
         self.rentcar_number = car_number
 
-        
-    def popup_window(self, window_type):
-        self.cardb.init_db()
-        self.is_login=True
-        if self.is_login or window_type=='main_window' or window_type=='login':
-            for key, value in self.WINDOW_TYPES.items():
-                if key == window_type:
-                    if self.WINDOW_TYPES[key]==False:
-                        self.OPEN_WINDOW[key]()
-
-                    self.WINDOW_TYPES[key] = True
-                else:
-                    if self.WINDOW_TYPES[key]==True:
-                        self.HIDE_WINDOW[key]()
-                    self.WINDOW_TYPES[key] = False
-        else:
-            self.loginWindow.show()
 
     def click_enter(self):
         id = self.ID.text()
@@ -616,25 +657,31 @@ class User_Server(Init_User_Server):
         pos_x = (px + pos_x)*100-16
         pos_y = (self.origin_y - (py + pos_y)*100)-18
 
-
         plan_x, plan_y = int(pos_x*(183/(self.origin_x  - 16*2)))+5, int(pos_y*(270/(self.origin_y  - 18*2 -4)))
-        if self.all_path is None and not self.is_arrive:
-            print(plan_x, plan_y)
-            print(self.goal_x, self.goal_y)
-            origin_x = 184
-            origin_y = 270
-            self.all_path, _ = self.pathplanner.generate_waypoint((plan_x, plan_y), (int(self.goal_x), int(self.goal_y)), self.is_renting, not(self.is_center))
-            for i in range(len(self.all_path)):
+        try:
+            if (self.all_path is None or self.lose_path) and not self.is_arrive:
+                origin_x = 184
+                origin_y = 270
+                
+                self.all_path, error = self.pathplanner.generate_waypoint((plan_x, plan_y), (int(self.goal_x), int(self.goal_y)), self.is_renting, not(self.is_center))
+                
+                if error and not (self.is_return):
+                    self.all_path = []
+                else:
+                    self.lose_path = False
+                    for i in range(len(self.all_path)):
+                        self.all_path[i][0] = int(self.all_path[i][0] * (-0.2 + self.map_w/origin_x))
+                        self.all_path[i][1] = int((self.all_path[i][1]-2) * (0.6+self.map_h/origin_y))
 
-                self.all_path[i][0] = int(self.all_path[i][0] * (-0.2 + self.map_w/origin_x))
-                self.all_path[i][1] = int((self.all_path[i][1]-2) * (0.6+self.map_h/origin_y))
+                    if not self.is_renting:
+                        self.goal_x, self.goal_y = self.all_path[-1]
+        except:
+            return
 
-        print(not(self.is_center))
-        
         pos_x = int((pos_x) * (self.map_w/(self.origin_x  - 16*2)))
         pos_y = int((pos_y) * (self.map_h/(self.origin_y - 18*2)))
-        if pos_x > 880 and pos_y > 2470 and pos_x < 2070 and pos_y < 3220:
 
+        if pos_x > 880 and pos_y > 2470 and pos_x < 2070 and pos_y < 3220:
             self.is_center=True
         else:
             self.is_center=False
@@ -642,14 +689,12 @@ class User_Server(Init_User_Server):
         if self.is_renting:
             self.map_frame.setPixmap(self.pixmap)
             painter = QPainter(self.map_frame.pixmap())
-            if not self.is_arrive:
+            if not self.is_arrive and len(self.all_path) > 0:
                 goal_x = int((self.goal_x-4) * (self.map_w/self.croped_x))
                 goal_y = int((self.goal_y-4) * (self.map_h/self.croped_y))
-
+                
                 self.all_path[0] = [pos_y+50, pos_x+50]
-                # self.all_path[-1] = [goal_y+50, goal_x+50]
-
-
+                self.all_path[-1] = [goal_y+50, goal_x+50]
                 for i in range(len(self.all_path)-1):
                     painter.setPen(QPen(Qt.green, 20))
                     painter.setBrush(QBrush(Qt.green))
@@ -667,21 +712,56 @@ class User_Server(Init_User_Server):
             painter.drawEllipse(pos_x, pos_y, 100, 100)
             painter.end()
         else:
-            for i in range(len(self.all_path)-1):
-                cur_points = self.all_path[i]
-                next_points = self.all_path[i+1]
-                cur_x, cur_y = cur_points
-                next_x, next_y = next_points
+            self.map_frame.setPixmap(self.pixmap)
+            painter = QPainter(self.map_frame.pixmap())
+            if len(self.all_path) > 0:
+                goal_x, goal_y = int(self.goal_y), int(self.goal_x)
+                
+                self.all_path[0] = [pos_y+50, pos_x+50]
+                self.all_path[-1] = [goal_y+50, goal_x+50]
+                for i in range(len(self.all_path)-1):
+                    painter.setPen(QPen(Qt.green, 20))
+                    painter.setBrush(QBrush(Qt.green))
+                    cur_points = self.all_path[i]
+                    next_points = self.all_path[i+1]
+                    cur_x, cur_y = cur_points
+                    next_x, next_y = next_points
+                    painter.drawLine(cur_y, cur_x, next_y, next_x)
+                painter.setPen(QPen(Qt.blue, 5))
+                painter.setBrush(QBrush(Qt.blue))
+                painter.drawEllipse(goal_x, goal_y, 100, 100)
+                
+            painter.setPen(QPen(Qt.red, 5))
+            painter.setBrush(QBrush(Qt.red))
+            painter.drawEllipse(pos_x, pos_y, 100, 100)
+            painter.end()
+            # if len(self.all_path) > 0:
+            #     goal_x, goal_y = int(self.goal_y), int(self.goal_x)
+            #     self.all_path[0] = [pos_y+50, pos_x+50]
+            #     self.all_path[-1] = [goal_y+50, goal_x+50]
 
-        if len(self.all_path) == 1:
-            self.is_arrive = True
-            self.set_arrive()
-        else:
-            if np.linalg.norm(self.all_path[0] - self.all_path[1]) < 200:
-                self.all_path = self.all_path[1:]
-            
-        self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[1][1], self.all_path[1][0], z, w, self.is_arrive, self.is_auto_driving}'
+            #     for i in range(len(self.all_path)-1):
+            #         cur_points = self.all_path[i]
+            #         next_points = self.all_path[i+1]
+            #         cur_x, cur_y = cur_points
+            #         next_x, next_y = next_points
 
+        if len(self.all_path) > 0:
+            if len(self.all_path) == 1:
+                self.is_arrive = True
+                self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[0][1], self.all_path[0][0], z, w, self.is_arrive, not(self.is_auto_driving)}'
+                if self.is_renting:
+                    self.set_arrive()
+                else:
+                    self.arrive_center()
+            else:
+                self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[1][1], self.all_path[1][0], z, w, self.is_arrive, not(self.is_auto_driving)}'
+                if np.linalg.norm(self.all_path[0] - self.all_path[1]) > 700:
+                    self.lose_path = True
+                    return
+
+                if np.linalg.norm(self.all_path[0] - self.all_path[1]) < 200:
+                    self.all_path = self.all_path[1:]
         # except:
         #     pass
 
