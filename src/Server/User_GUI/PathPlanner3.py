@@ -523,8 +523,10 @@ class PathPlanning():
             else:
                 print('현재 목적지 근처에 있습니다.')
                 min1_take = min2_take = one_way = exc_sig = for_cnt = None
+                return _, True
         else:
             print('호출 및 주정차 금지 구역입니다.')
+            return _, True
 
         # 시그널 초기화
         print('모든 시그널 초기화')
