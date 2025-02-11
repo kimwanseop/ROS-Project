@@ -123,12 +123,14 @@ class Init_User_Server(QMainWindow, form_class):
             self.battery_bg.show()
             self.battery_green.show()
             self.battery_percent.show()
+            self.select_mode.show()
             if self.is_boarding:
                 self.btn_boarding.show()
             else:
                 self.btn_boarding.hide()
             # self.map_thread.start()
         else:
+            self.select_mode.hide()
             self.btn_return.hide()
             self.btn_rent.show()
             self.battery_bg.hide()
@@ -138,8 +140,7 @@ class Init_User_Server(QMainWindow, form_class):
 
     def hide_map_window(self):
         self.map_widget.hide()
-        # if self.is_renting:
-        #     self.map_thread.stop()
+        
 
     def show_car_window(self):
         self.car_widget.show()

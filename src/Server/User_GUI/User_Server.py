@@ -20,7 +20,8 @@ from Init_user_server import Init_User_Server
 from DB.Car import Car
 from DB.Member import Member
 from Control_CAR import MyCar
-from PathPlanner2 import PathPlanning
+from PathPlanner import PathPlanning
+# from PathPlanner import PathPlanning
 from Recognition import FaceRecognitionModel, DetectionModel
 
 
@@ -84,10 +85,12 @@ class User_Server(Init_User_Server):
         self.is_capturing = False
         self.is_start=False
         self.is_center=True
+        
         self.passwords = {}
         self.password = ''
         self.before_len = 0
         self.origin_x, self.origin_y = 215, 306
+        self.croped_x, self.croped_y = self.origin_x - 16*2, self.origin_y - 16*2 - 4
         self.goal_x, self.goal_y = None, None,
         self.all_path, self.waypoints = None, None
         self.is_arrive = False
@@ -112,6 +115,7 @@ class User_Server(Init_User_Server):
         self.btn_logout.clicked.connect(self.logout)
         self.btn_rent.clicked.connect(self.btn_call_car)
         self.btn_boarding.clicked.connect(self.checking_user)
+        self.select_mode.clicked.connect(self.change_driving_mode)
 
         self.btn_back.clicked.connect(self.go_back)
         self.btn_home.clicked.connect(lambda: self.popup_window('main_window'))
@@ -276,6 +280,14 @@ class User_Server(Init_User_Server):
         elif dialog=='auther_check':
             self.auther_check_window.close()
 
+    def change_driving_mode(self):
+        if self.is_auto_driving:
+            self.select_mode.setText('수동 주행')
+            self.is_auto_driving = False
+        else:
+            self.select_mode.setText('자동 주행')
+            self.is_auto_driving = True
+
     def add_img(self):
         img_path = QFileDialog.getOpenFileName(self, 'Open file', './', 'Image files (*.jpg *.png)')[0]
         self.register_window.img_path.setText(img_path)
@@ -413,6 +425,7 @@ class User_Server(Init_User_Server):
 
     def set_arrive(self):
         self.is_auther_check = True
+        self.is_auto_driving = False
         self.all_path, self.waypoints = None, None
         self.arrive_window.show()
         self.popup_window('main_window')
@@ -420,10 +433,13 @@ class User_Server(Init_User_Server):
 
     def renting_car(self):
         self.is_renting = True 
+        self.is_auto_driving = True
         goal_x, goal_y = self.position_window.p_x, self.position_window.p_y
         w, h = self.position_window.map.width(), self.position_window.map.height()
-        self.goal_x = goal_x*(self.origin_x/w)
-        self.goal_y = goal_y*(self.origin_y/h)
+        # self.goal_x = goal_x*(self.origin_x/w)
+        # self.goal_y = goal_y*(self.origin_y/h)
+        self.goal_x = goal_x*(self.croped_x/w)
+        self.goal_y = goal_y*(self.croped_y/h)
         
         self.close_window('position')        
         self.cardb.update_values('car', 'is_rented=1', f'car_number="{str(self.rentcar_number)}"')
@@ -542,32 +558,36 @@ class User_Server(Init_User_Server):
     def keyPressEvent(self, event):
         linear_x = 0.3
         angular_z = 1.
-        if event.key() == Qt.Key_W: 
-            self.myCar.msg.linear.x = linear_x
-            self.myCar.msg.angular.z = 0.
-        elif event.key() == Qt.Key_Q:
-            self.myCar.msg.linear.x = linear_x
-            self.myCar.msg.angular.z = angular_z
-        elif event.key() == Qt.Key_E:
-            self.myCar.msg.linear.x = linear_x
-            self.myCar.msg.angular.z = -angular_z
-        elif event.key() == Qt.Key_X:
-            self.myCar.msg.linear.x = -linear_x
-            self.myCar.msg.angular.z = 0.
-        elif event.key() == Qt.Key_Z:
-            self.myCar.msg.linear.x = -linear_x
-            self.myCar.msg.angular.z = -angular_z
-        elif event.key() == Qt.Key_C:
-            self.myCar.msg.linear.x = -linear_x
-            self.myCar.msg.angular.z = angular_z
-        elif event.key() == Qt.Key_A:
-            self.myCar.msg.angular.z = angular_z
-        elif event.key() == Qt.Key_D:
-            self.myCar.msg.angular.z = -angular_z
-        elif event.key() == Qt.Key_S:
+        if not (self.is_auto_driving):
+            if event.key() == Qt.Key_W: 
+                self.myCar.msg.linear.x = linear_x
+                self.myCar.msg.angular.z = 0.
+            elif event.key() == Qt.Key_Q:
+                self.myCar.msg.linear.x = linear_x
+                self.myCar.msg.angular.z = angular_z
+            elif event.key() == Qt.Key_E:
+                self.myCar.msg.linear.x = linear_x
+                self.myCar.msg.angular.z = -angular_z
+            elif event.key() == Qt.Key_X:
+                self.myCar.msg.linear.x = -linear_x
+                self.myCar.msg.angular.z = 0.
+            elif event.key() == Qt.Key_Z:
+                self.myCar.msg.linear.x = -linear_x
+                self.myCar.msg.angular.z = -angular_z
+            elif event.key() == Qt.Key_C:
+                self.myCar.msg.linear.x = -linear_x
+                self.myCar.msg.angular.z = angular_z
+            elif event.key() == Qt.Key_A:
+                self.myCar.msg.angular.z = angular_z
+            elif event.key() == Qt.Key_D:
+                self.myCar.msg.angular.z = -angular_z
+            elif event.key() == Qt.Key_S:
+                self.myCar.msg.linear.x = 0.                        
+                self.myCar.msg.angular.z = 0.             
+        else:
             self.myCar.msg.linear.x = 0.                        
-            self.myCar.msg.angular.z = 0.                                           
-        
+            self.myCar.msg.angular.z = 0.             
+            
 
     def set_Threads(self):
         self.battery_check = Thread(sec=3)
@@ -597,20 +617,19 @@ class User_Server(Init_User_Server):
         pos_y = (self.origin_y - (py + pos_y)*100)-18
 
 
-        plan_x, plan_y = int(pos_x*(183/(self.origin_x  - 16*2)))+5, int(pos_y*(270/(self.origin_y  - 18*2)))
+        plan_x, plan_y = int(pos_x*(183/(self.origin_x  - 16*2)))+5, int(pos_y*(270/(self.origin_y  - 18*2 -4)))
         if self.all_path is None and not self.is_arrive:
+            print(plan_x, plan_y)
+            print(self.goal_x, self.goal_y)
             origin_x = 184
             origin_y = 270
-            print(plan_x, plan_y)
-            # self.all_path, _ = self.pathplanner.generate_waypoint((plan_x, plan_y), (self.goal_x, self.goal_y))
-            self.all_path, _ = self.pathplanner.generate_waypoint((plan_x, plan_y), (self.goal_x, self.goal_y), self.is_renting, self.is_center)
-
-
+            self.all_path, _ = self.pathplanner.generate_waypoint((plan_x, plan_y), (int(self.goal_x), int(self.goal_y)), self.is_renting, not(self.is_center))
             for i in range(len(self.all_path)):
+
                 self.all_path[i][0] = int(self.all_path[i][0] * (-0.2 + self.map_w/origin_x))
                 self.all_path[i][1] = int((self.all_path[i][1]-2) * (0.6+self.map_h/origin_y))
 
-                
+        print(not(self.is_center))
         
         pos_x = int((pos_x) * (self.map_w/(self.origin_x  - 16*2)))
         pos_y = int((pos_y) * (self.map_h/(self.origin_y - 18*2)))
@@ -619,18 +638,16 @@ class User_Server(Init_User_Server):
             self.is_center=True
         else:
             self.is_center=False
-        print(self.is_center)
 
         if self.is_renting:
             self.map_frame.setPixmap(self.pixmap)
             painter = QPainter(self.map_frame.pixmap())
             if not self.is_arrive:
-                goal_x = int((self.goal_x-4) * (self.map_w/self.origin_x))
-                goal_y = int((self.goal_y-5) * (self.map_h/self.origin_y))
-                print(goal_x, goal_y)
+                goal_x = int((self.goal_x-4) * (self.map_w/self.croped_x))
+                goal_y = int((self.goal_y-4) * (self.map_h/self.croped_y))
 
                 self.all_path[0] = [pos_y+50, pos_x+50]
-                self.all_path[-1] = [goal_y+50, goal_x+50]
+                # self.all_path[-1] = [goal_y+50, goal_x+50]
 
 
                 for i in range(len(self.all_path)-1):
@@ -663,7 +680,7 @@ class User_Server(Init_User_Server):
             if np.linalg.norm(self.all_path[0] - self.all_path[1]) < 200:
                 self.all_path = self.all_path[1:]
             
-        self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[1][1], self.all_path[1][0], z, w, self.is_arrive}'
+        self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[1][1], self.all_path[1][0], z, w, self.is_arrive, self.is_auto_driving}'
 
         # except:
         #     pass

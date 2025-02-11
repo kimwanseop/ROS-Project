@@ -590,7 +590,8 @@ class User_Server(Init_User_Server):
             pos_y = (self.origin_y - (py + pos_y)*100)-18
 
             plan_x, plan_y = int(pos_x*(183/(self.origin_x  - 16*2)))+5, int(pos_y*(270/(self.origin_y  - 18*2)))
-
+            print(plan_x, plan_y)
+            print(int(self.goal_x), int(self.goal_y))
             if self.all_path is None and not self.is_arrive:
                 
                 origin_x = 184
