@@ -49,6 +49,7 @@ class Init_User_Server(QMainWindow, form_class):
         self.is_login=False 
         self.is_renting = False
         self.is_boarding = False
+        self.is_auther_check = False
         self.map_frame.setPixmap(QPixmap("./Images/map.jpg"))
         self.show_main_window() 
         self.hide_map_window()
@@ -72,6 +73,25 @@ class Init_User_Server(QMainWindow, form_class):
             self.login.show()
             self.register_2.show()
             self.btn_logout.hide()
+
+        if self.is_auther_check:
+            self.btn_start.hide()
+            self.label_start.hide()
+            self.btn_boarding.show()
+            self.label_boarding.show()
+        else:
+            self.btn_start.show()
+            self.label_start.show()
+            self.btn_boarding.hide()
+            self.label_boarding.hide()
+        
+        if self.is_renting:
+            self.btn_start.hide()
+            self.label_start.hide()
+        else:
+            self.btn_start.show()
+            self.label_start.show()
+
 
     def hide_main_window(self):
         self.start_widget.hide()
@@ -104,9 +124,9 @@ class Init_User_Server(QMainWindow, form_class):
             self.battery_green.show()
             self.battery_percent.show()
             if self.is_boarding:
-                self.btn_board.show()
+                self.btn_boarding.show()
             else:
-                self.btn_board.hide()
+                self.btn_boarding.hide()
             # self.map_thread.start()
         else:
             self.btn_return.hide()
@@ -114,7 +134,7 @@ class Init_User_Server(QMainWindow, form_class):
             self.battery_bg.hide()
             self.battery_green.hide()
             self.battery_percent.hide()
-            self.btn_board.hide()
+            self.btn_boarding.hide()
 
     def hide_map_window(self):
         self.map_widget.hide()

@@ -321,7 +321,7 @@ class PathPlanning():
 
                 linked_path.append(real_path)
                 # print(f"{i + 1} 번째 경로의 start : {(real_path[0])}, goal : {(real_path[-1])}, wp_goal : {wp_goal}")
-            return np.concatenate(linked_path), wp_path
+            return np.concatenate(linked_path), list(wp_path)
         else:
             print('No path found')
 

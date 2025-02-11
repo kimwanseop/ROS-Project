@@ -27,11 +27,10 @@ class FaceRecognitionModel():
         self.known_face_names.append(name)
 
     def face_athentication(self, frame):
-        frame, bbox = self.face_detection(frame)
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) 
-        face_encodings = face_recognition.face_encodings(frame)
+        face, bbox = self.face_detection(frame)
+        face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+        face_encodings = face_recognition.face_encodings(face)
 
-        face_names = []
         for face_encoding in face_encodings:
             matches = face_recognition.compare_faces(self.known_face_encodings[0], face_encoding, tolerance=0.35)
             name = "unknown"
@@ -39,17 +38,22 @@ class FaceRecognitionModel():
             if True in matches:
                 first_match_index = matches.index(True)
                 name = self.known_face_names[first_match_index]
-
-            face_names.append(name)
-
-        return bbox, face_names
+        
+        cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 2)
+        font = cv2.FONT_HERSHEY_DUPLEX
+        cv2.putText(frame, name, (bbox[0]+6, bbox[3]-6), font, .5, (255, 255, 255), 1)
+        return frame, name
+        # return bbox, face_names
 
     def draw_boxes(self, frame, face_locations, face_names):
+
         for (top, right, bottom, left), name in zip(face_locations, face_names):
             cv2.rectangle(frame, (left, top), (right, bottom), (200, 100, 5), 2)
             cv2.rectangle(frame, (left, bottom), (right, bottom), (200, 100, 5), cv2.FILLED)
             font = cv2.FONT_HERSHEY_DUPLEX
             cv2.putText(frame, name, (left + 6, bottom - 6), font, .5, (255, 255, 255), 1)
+        print('here4')
+        
 
 
 class DrowseDetectionModel(nn.Module):

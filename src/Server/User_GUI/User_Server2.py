@@ -20,7 +20,7 @@ from Init_user_server import Init_User_Server
 from DB.Car import Car
 from DB.Member import Member
 from Control_CAR import MyCar
-from PathPlanner2 import PathPlanning
+from PathPlanner import PathPlanning
 from Recognition import FaceRecognitionModel, DetectionModel
 
 
@@ -93,13 +93,6 @@ class User_Server(Init_User_Server):
         self.is_arrive = False
         self.is_auto_driving = False
         self.USER_ID = None
-        pos_center = self.center_area.geometry()
-        pos_x1 = pos_center.x() * (self.map_w/381)
-        pos_y1 = pos_center.y() * (self.map_h/541)
-        pos_x2 = (pos_center.x() + pos_center.width()) * (self.map_w/381)
-        pos_y2 = (pos_center.y() + pos_center.height()) * (self.map_h/541)
-        self.area_center = [pos_x1, pos_y1, pos_x2, pos_y2]
-        
 
         self.pathplanner = PathPlanning()
         self.face_detection = DetectionModel().cuda()
@@ -390,7 +383,7 @@ class User_Server(Init_User_Server):
         self.car_thread.stop()
         self.myCar.destroy_node()
         self.battery_check.stop()
-        self.map_thread.stop()
+        # self.map_thread.stop()
         self.cardb.update_values('car', 'is_rented=0', f'car_number="{str(self.rentcar_number)}"')
         rclpy.shutdown()
         self.close_window('return')
@@ -567,6 +560,7 @@ class User_Server(Init_User_Server):
         elif event.key() == Qt.Key_S:
             self.myCar.msg.linear.x = 0.                        
             self.myCar.msg.angular.z = 0.                                           
+            self.is_arrive = True
         
 
     def set_Threads(self):
@@ -580,6 +574,7 @@ class User_Server(Init_User_Server):
         self.face_thread.data.connect(self.matching_face)
 
     def update_map(self):
+        # try:
         try:
             px, py = 0.84, 0.94
             data = self.myCar.pos 
@@ -590,83 +585,75 @@ class User_Server(Init_User_Server):
             pos_x, pos_y = position.x, position.y
             
             self.cardb.update_values('car', f'pos="{pos_x}, {pos_y}"', f'car_number="{str(self.rentcar_number)}"')
-        except:
-            return
-        # pgm파일 x100배 한 좌표
-        pos_x = (px + pos_x)*100-16
-        pos_y = (self.origin_y - (py + pos_y)*100)-18
+            # pgm파일 x100배 한 좌표
+            pos_x = (px + pos_x)*100-16
+            pos_y = (self.origin_y - (py + pos_y)*100)-18
 
+            plan_x, plan_y = int(pos_x*(183/(self.origin_x  - 16*2)))+5, int(pos_y*(270/(self.origin_y  - 18*2)))
 
-        plan_x, plan_y = int(pos_x*(183/(self.origin_x  - 16*2)))+5, int(pos_y*(270/(self.origin_y  - 18*2)))
-        if self.all_path is None and not self.is_arrive:
-            origin_x = 184
-            origin_y = 270
-            print(plan_x, plan_y)
-            # self.all_path, _ = self.pathplanner.generate_waypoint((plan_x, plan_y), (self.goal_x, self.goal_y))
-            self.all_path, _ = self.pathplanner.generate_waypoint((plan_x, plan_y), (self.goal_x, self.goal_y), self.is_renting, self.is_center)
-
-
-            for i in range(len(self.all_path)):
-                self.all_path[i][0] = int(self.all_path[i][0] * (-0.2 + self.map_w/origin_x))
-                self.all_path[i][1] = int((self.all_path[i][1]-2) * (0.6+self.map_h/origin_y))
-
+            if self.all_path is None and not self.is_arrive:
                 
-        
-        pos_x = int((pos_x) * (self.map_w/(self.origin_x  - 16*2)))
-        pos_y = int((pos_y) * (self.map_h/(self.origin_y - 18*2)))
-        if pos_x > 880 and pos_y > 2470 and pos_x < 2070 and pos_y < 3220:
+                origin_x = 184
+                origin_y = 270
+                self.all_path, _ = self.pathplanner.generate_waypoint((plan_x, plan_y), (self.goal_x, self.goal_y))
+                self.is_center = False
 
-            self.is_center=True
-        else:
-            self.is_center=False
-        print(self.is_center)
+                for i in range(len(self.all_path)):
+                    self.all_path[i][0] = int(self.all_path[i][0] * (-0.2 + self.map_w/origin_x))
+                    self.all_path[i][1] = int((self.all_path[i][1]-2) * (0.6+self.map_h/origin_y))
 
-        if self.is_renting:
-            self.map_frame.setPixmap(self.pixmap)
-            painter = QPainter(self.map_frame.pixmap())
-            if not self.is_arrive:
-                goal_x = int((self.goal_x-4) * (self.map_w/self.origin_x))
-                goal_y = int((self.goal_y-5) * (self.map_h/self.origin_y))
-                print(goal_x, goal_y)
+                    
+            
+            pos_x = int((pos_x) * (self.map_w/(self.origin_x  - 16*2)))
+            pos_y = int((pos_y) * (self.map_h/(self.origin_y - 18*2)))
 
-                self.all_path[0] = [pos_y+50, pos_x+50]
-                self.all_path[-1] = [goal_y+50, goal_x+50]
+            if self.is_renting:
+                self.map_frame.setPixmap(self.pixmap)
+                painter = QPainter(self.map_frame.pixmap())
+                if not self.is_arrive:
+                    goal_x = int((self.goal_x-4) * (self.map_w/self.origin_x))
+                    goal_y = int((self.goal_y-5) * (self.map_h/self.origin_y))
 
+                    self.all_path[0] = [pos_y+50, pos_x+50]
+                    self.all_path[-1] = [goal_y+50, goal_x+50]
 
+                    for i in range(len(self.all_path)-1):
+                        painter.setPen(QPen(Qt.green, 20))
+                        painter.setBrush(QBrush(Qt.green))
+                        cur_points = self.all_path[i]
+                        next_points = self.all_path[i+1]
+                        cur_x, cur_y = cur_points
+                        next_x, next_y = next_points
+                        painter.drawLine(cur_y, cur_x, next_y, next_x)
+                    painter.setPen(QPen(Qt.blue, 5))
+                    painter.setBrush(QBrush(Qt.blue))
+                    painter.drawEllipse(goal_x, goal_y, 100, 100)
+
+                painter.setPen(QPen(Qt.red, 5))
+                painter.setBrush(QBrush(Qt.red))
+                painter.drawEllipse(pos_x, pos_y, 100, 100)
+                painter.end()
+            else:
                 for i in range(len(self.all_path)-1):
-                    painter.setPen(QPen(Qt.green, 20))
-                    painter.setBrush(QBrush(Qt.green))
                     cur_points = self.all_path[i]
                     next_points = self.all_path[i+1]
                     cur_x, cur_y = cur_points
                     next_x, next_y = next_points
-                    painter.drawLine(cur_y, cur_x, next_y, next_x)
-                painter.setPen(QPen(Qt.blue, 5))
-                painter.setBrush(QBrush(Qt.blue))
-                painter.drawEllipse(goal_x, goal_y, 100, 100)
+
+            if len(self.all_path) == 1:
+                self.is_arrive = True
+                self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[0][1], self.all_path[0][0], z, w, self.is_arrive}'
                 
-            painter.setPen(QPen(Qt.red, 5))
-            painter.setBrush(QBrush(Qt.red))
-            painter.drawEllipse(pos_x, pos_y, 100, 100)
-            painter.end()
-        else:
-            for i in range(len(self.all_path)-1):
-                cur_points = self.all_path[i]
-                next_points = self.all_path[i+1]
-                cur_x, cur_y = cur_points
-                next_x, next_y = next_points
+                self.set_arrive()
+            else:
+                if np.linalg.norm(self.all_path[0] - self.all_path[1]) < 200:
+                    self.all_path = self.all_path[1:]
+                
+                self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[1][1], self.all_path[1][0], z, w, self.is_arrive}'
+                # self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[1][1], self.all_path[1][0], z, w, True}'
 
-        if len(self.all_path) == 1:
-            self.is_arrive = True
-            self.set_arrive()
-        else:
-            if np.linalg.norm(self.all_path[0] - self.all_path[1]) < 200:
-                self.all_path = self.all_path[1:]
-            
-        self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[1][1], self.all_path[1][0], z, w, self.is_arrive}'
-
-        # except:
-        #     pass
+        except:
+            pass
 
 
 
