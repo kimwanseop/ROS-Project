@@ -161,7 +161,7 @@ class PathPlanning():
                 return True
 
         def find_start_goal(coord, waypoint_graph, grid, weight_map, flag=None):
-                global min1_take, min2_take, one_way, exc_sig, sig_2225
+                global min1_take, min2_take, one_way, exc_sig, sig_2225, sig_1122
                 cost_list = []
                 for station in waypoint_graph:
                     _, g_cost = a_star((coord[1], coord[0]), (station[1], station[0]), waypoint_graph, grid, weight_map)
@@ -202,6 +202,8 @@ class PathPlanning():
                                 print('min1 선택! (start)')
                                 if (min1_idx == 22 or min1_idx == 25) and (min2_idx == 22 or min2_idx == 25):
                                     sig_2225 = 1
+                                elif (min1_idx in [11, 22]) and (min2_idx in [11, 22]):
+                                    sig_1122 = 1
                                 return new_coord
                 
                 # goal 좌표를 줬을 때
@@ -213,9 +215,26 @@ class PathPlanning():
                         new_coord, idx = wp_num[min2_idx], min2_idx
                         print('min2 선택 (goal)')
                         return new_coord
-                    elif (min1_idx in [11, 22, 25] and min2_idx in [11, 22, 25]):
-                        print('wp[11]을 new_coord 로 선택')
-                        new_coord = wp_num[11]
+                    # elif (min1_idx in [11, 22, 25] and min2_idx in [11, 22, 25]):
+                    #     print('wp[11]을 new_coord 로 선택')
+                    #     new_coord = wp_num[11]
+                    #     return new_coord
+                    # else:
+                    #     new_coord, idx = wp_num[min1_idx], min1_idx
+                    #     print('min1 선택 (goal)')
+                    #     return new_coord
+                    elif (min1_idx in [11, 22] and min2_idx in [11, 22]):
+                        if goal[1] <= wp_num[24][1]:  # 95 이하면
+                            print('wp[25]를 new_coord 로 선택')
+                            new_coord = wp_num[25]
+                            return new_coord
+                        else:
+                            print('wp[11]을 new_coord 로 선택')
+                            new_coord = wp_num[11]
+                            return new_coord
+                    elif (min1_idx in [25, 22] and min2_idx in [25, 22]):
+                        print('wp[25]을 new_coord 로 선택')
+                        new_coord = wp_num[25]
                         return new_coord
                     else:
                         new_coord, idx = wp_num[min1_idx], min1_idx
@@ -385,7 +404,7 @@ class PathPlanning():
             plt.scatter(start[0], start[1], color='blue', marker='o', label='Start', s=30)
             plt.scatter(goal[0], goal[1], color='red', marker='x', label='Goal', s=30)
 
-            if (new_start != new_goal or exc_sig is not None):
+            if (new_start != new_goal or exc_sig):
 
                 first_wp_path = a_star(new_start, new_goal, waypoint_graph)
 
@@ -397,9 +416,9 @@ class PathPlanning():
 
                 path_result, _ = a_star((s[1], s[0]), (g[1], g[0]), waypoint_graph, grid=grid, weight_map=weight_map)
 
-                expended_list = expand_multiple_coordinates(path_result, buffer_size=4)
+                expended_list = expand_multiple_coordinates(path_result, buffer_size=10)
 
-                expended_goal = expand_coordinates((goal[1], goal[0]), buffer_size=4)
+                expended_goal = expand_coordinates((goal[1], goal[0]), buffer_size=10)
 
                 if any(goal in expended_list for goal in expended_goal):
                     first_wp_path[-1] = goal
@@ -414,11 +433,11 @@ class PathPlanning():
                 # 전역 경로 사이 두 waypoint 간의 pathplanning 실행
                 if wp_path:
                     linked_path = []
-                    if len(wp_path) == 1 or one_way is not None:
+                    if len(wp_path) == 1 or one_way:
                         # print('원래 start 좌표가 wp_path 맨 앞으로 들어옴')
                         wp_path.insert(0, start)
 
-                    if one_way is not None:
+                    if one_way:
                         for_cnt = len(wp_path) - 1
                     else:
                         for_cnt = len(wp_path)
@@ -437,19 +456,19 @@ class PathPlanning():
                                 # print('맨 처음 조건문')
                                 # print(f"min1_take = {min1_take}")
                                 if pp_cnt is False:  # 최초 호출 시 
-                                    if exc_sig is not None:
+                                    if exc_sig:
                                         # print('5번, 20번 예외처리 시작 in for 문')
                                         wp_path[0] = start
                                     else:
                                         # print('맨 앞에 start 삽입')
                                         wp_path.insert(0, start)
                                 else:
-                                    if (min1_take is None and min2_take is not None):
+                                    if (min1_take is None and min2_take):
                                         # print('맨 앞에 new_start 삽입')
                                         wp_path.insert(0, new_start)  # 이게 min2_take 일 때
-                                    elif (min2_take is None and min1_take is not None):
-                                        if exc_sig is not None or len(wp_path) <= 2:
-                                            if sig_2225 is not None:
+                                    elif (min2_take is None and min1_take):
+                                        if exc_sig or len(wp_path) <= 2:
+                                            if sig_2225 or sig_1122:
                                                 wp_path[0] = start
                                             else:
                                                 wp_path.insert(0, start)
@@ -516,18 +535,19 @@ class PathPlanning():
                     final_path = linked_path[np.sort(idx)]
 
                     # 시그널 초기화
-                    min1_take = min2_take = one_way = exc_sig = for_cnt = None
+                    min1_take = min2_take = one_way = exc_sig = for_cnt = sig_2225 = sig_1122 = None
                     return final_path, _
                 else:
                     print('No path found')
             else:
                 print('현재 목적지 근처에 있습니다.')
-                min1_take = min2_take = one_way = exc_sig = for_cnt = None
+                min1_take = min2_take = one_way = exc_sig = for_cnt = sig_2225 = sig_1122 = None
                 return _, True
         else:
             print('호출 및 주정차 금지 구역입니다.')
+            min1_take = min2_take = one_way = exc_sig = for_cnt = sig_2225 = sig_1122 = None
             return _, True
 
         # 시그널 초기화
         print('모든 시그널 초기화')
-        min1_take = min2_take = one_way = exc_sig = for_cnt = None
+        min1_take = min2_take = one_way = exc_sig = for_cnt = sig_2225 = sig_1122 = None
