@@ -355,8 +355,7 @@ class PathPlanning():
 
         # 지도 변환 pgm -> 이진 배열 (0: 도로, 1: 장애물)
         grid = pixel_based_map(map)
-        grid = pixel_based_map(map)
-        plt.imshow(grid, cmap='gray')
+        # plt.imshow(grid, cmap='gray')
 
         # Waypoints 시각화
         # for wp, _ in waypoint_graph.items():
@@ -372,13 +371,27 @@ class PathPlanning():
         # (5번, 20번), (5번, 17번) wp 사이 예외 처리 시그널
         exc_sig = None
 
-        sig_2225 = None
+        sig_2225 = None 
+        sig_1122 = None
+
+        overlap =  None
 
         # start, goal 좌표
         start = start_point
         goal = goal_point
         if is_renting is False:
             goal = wp_num[23]  
+
+        expanded_start = expand_coordinates((start[1], start[0]), 4)
+        expanded_goal = expand_coordinates((goal[1], goal[0]), 4)
+
+        if set(expanded_start) & set(expanded_goal):
+            # print('렵침')
+            overlap = True  # 시작점과 도착점이 겹침
+        else:
+            # print('겹치지 않음')
+            overlap = False
+
 
         # 둘 다 True 면 실행되야 함.
         start_valid = valid_start_goal(start)
@@ -404,7 +417,7 @@ class PathPlanning():
             plt.scatter(start[0], start[1], color='blue', marker='o', label='Start', s=30)
             plt.scatter(goal[0], goal[1], color='red', marker='x', label='Goal', s=30)
 
-            if (new_start != new_goal or exc_sig):
+            if (new_start != new_goal or exc_sig) and overlap == False:
 
                 first_wp_path = a_star(new_start, new_goal, waypoint_graph)
 
@@ -427,9 +440,6 @@ class PathPlanning():
                     
                 wp_path = first_wp_path
 
-                # print("중간 1 경로:", wp_path)
-                # print('-' * 50)
-
                 # 전역 경로 사이 두 waypoint 간의 pathplanning 실행
                 if wp_path:
                     linked_path = []
@@ -444,7 +454,7 @@ class PathPlanning():
 
                     # print(f'중간 2 wp_path = {wp_path}')
 
-                    real_wp_path = []
+                    # real_wp_path = []
 
                     for i in range(for_cnt):
                         if ((i == 0) and (wp_path[i] != start)):
@@ -535,14 +545,14 @@ class PathPlanning():
                     final_path = linked_path[np.sort(idx)]
 
                     # 시그널 초기화
-                    min1_take = min2_take = one_way = exc_sig = for_cnt = None
+                    # min1_take = min2_take = one_way = exc_sig = for_cnt = sig_2225 = sig_1122 = None
                     return final_path, False
 
                 else:
                     print('No path found')
             else:
                 print('현재 목적지 근처에 있습니다.')
-                min1_take = min2_take = one_way = exc_sig = for_cnt = None
+                # min1_take = min2_take = one_way = exc_sig = for_cnt = sig_2225 = sig_1122 = None
                 return [], True
         else:
             print('호출 및 주정차 금지 구역입니다.')
@@ -550,4 +560,4 @@ class PathPlanning():
 
         # 시그널 초기화
         print('모든 시그널 초기화')
-        min1_take = min2_take = one_way = exc_sig = for_cnt = sig_2225 = sig_1122 = None
+        min1_take = min2_take = one_way = exc_sig = for_cnt = sig_2225 = sig_1122 = overlap =  None
