@@ -278,8 +278,11 @@ class PathPlanning():
             2 : (88, 277),
             3 : (60, 196),
             4 : (45, 196),
-            5 : (44, 140),
-            6 : (31, 140),
+            # 5 : (44, 140),
+            # 6 : (31, 140),
+            5 : (44, 130),
+            6 : (31, 130),
+
             7 : (37, 42),
             8 : (107, 28),
             9 : (178, 42),
@@ -301,6 +304,7 @@ class PathPlanning():
             24 : (31,95),
             25 : (150, 45),
             26 : (108, 216),
+            27 : (121, 212),
             # 일방 통행 좌표용
             30 : (88, 107),
             31 : (37, 56),
@@ -347,11 +351,12 @@ class PathPlanning():
             wp_num[21]: [wp_num[25]],  # 21번 : 25
             wp_num[22]: [wp_num[11]],  # 22번 : 11
 
-            wp_num[23]: [],  # 23번 : 도착 시 행하는 명령어만 따로 만들기
+            wp_num[23]: [wp_num[27]],  # 23번 : 27
 
             wp_num[24]: [wp_num[5], wp_num[6]],  # 24번 : 5, 6  
             wp_num[25]: [wp_num[11]], # 25번 : 11
-            wp_num[26]: [wp_num[0]]  # 26번 : 0
+            wp_num[26]: [wp_num[0]],  # 26번 : 0
+            wp_num[27]: []        
         }
 
         # 주 지도
@@ -390,7 +395,7 @@ class PathPlanning():
         start = start_point
         goal = goal_point
         if is_renting is False:
-            goal = wp_num[23]  
+            goal = wp_num[27]  
 
         expanded_start = expand_coordinates((start[1], start[0]), 4)
         expanded_goal = expand_coordinates((goal[1], goal[0]), 4)
