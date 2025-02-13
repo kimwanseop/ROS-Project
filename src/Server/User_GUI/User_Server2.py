@@ -16,11 +16,12 @@ from PyQt5 import *
 from PyQt5 import uic
 from PyQt5.QtCore import Qt
 
-from Init_user_server import Init_User_Server
+from Init_user_server2 import Init_User_Server
 from DB.Car import Car
 from DB.Member import Member
 from Control_CAR import MyCar
-from PathPlanner import PathPlanning
+from PathPlanner3 import PathPlanning
+# from PathPlanner import PathPlanning
 from Recognition import FaceRecognitionModel, DetectionModel
 
 
@@ -81,18 +82,29 @@ class User_Server(Init_User_Server):
 
     def init_parameters(self):
         self.popup_window('main_window')
+        self.ROS_DOMAIN_ID = None
         self.is_capturing = False
         self.is_start=False
         self.is_center=True
+        self.is_return=False
+        self.lose_path = False
         self.passwords = {}
         self.password = ''
         self.before_len = 0
         self.origin_x, self.origin_y = 215, 306
+        self.croped_x, self.croped_y = self.origin_x - 16*2, self.origin_y - 16*2 - 4
         self.goal_x, self.goal_y = None, None,
         self.all_path, self.waypoints = None, None
         self.is_arrive = False
         self.is_auto_driving = False
         self.USER_ID = None
+        pos_center = self.center_area.geometry()
+        pos_x1 = pos_center.x() * (self.map_w/381)
+        pos_y1 = pos_center.y() * (self.map_h/541)
+        pos_x2 = (pos_center.x() + pos_center.width()) * (self.map_w/381)
+        pos_y2 = (pos_center.y() + pos_center.height()) * (self.map_h/541)
+        self.area_center = [pos_x1, pos_y1, pos_x2, pos_y2]
+        
 
         self.pathplanner = PathPlanning()
         self.face_detection = DetectionModel().cuda()
@@ -105,11 +117,11 @@ class User_Server(Init_User_Server):
         self.btn_logout.clicked.connect(self.logout)
         self.btn_rent.clicked.connect(self.btn_call_car)
         self.btn_boarding.clicked.connect(self.checking_user)
+        self.select_mode.clicked.connect(self.change_driving_mode)
 
         self.btn_back.clicked.connect(self.go_back)
         self.btn_home.clicked.connect(lambda: self.popup_window('main_window'))
         self.map_info.clicked.connect(lambda: self.popup_window('map'))
-        self.car_info.clicked.connect(lambda: self.popup_window('car'))
         self.login.clicked.connect(lambda: self.popup_window('login'))
         self.PW.textChanged.connect(self.input_password)
         self.btn_enter.clicked.connect(self.click_enter)
@@ -144,6 +156,7 @@ class User_Server(Init_User_Server):
             self.register_window.phone.setText('')
             self.register_window.license.setText('')
             self.register_window.img_path.setText('')
+            self.register_window.image_frame.clear()
             self.register_window.close()
 
     def go_back(self):
@@ -165,6 +178,24 @@ class User_Server(Init_User_Server):
                 self.car_name_listup()
         else:      
             self.car_name_listup(search_text, info_type=search_type)
+
+    def popup_window(self, window_type):
+        self.cardb.init_db()
+        self.memdb.init_db()
+        # self.is_login=True
+        if self.is_login or window_type=='main_window' or window_type=='login':
+            for key, value in self.WINDOW_TYPES.items():
+                if key == window_type:
+                    if self.WINDOW_TYPES[key]==False:
+                        self.OPEN_WINDOW[key]()
+
+                    self.WINDOW_TYPES[key] = True
+                else:
+                    if self.WINDOW_TYPES[key]==True:
+                        self.HIDE_WINDOW[key]()
+                    self.WINDOW_TYPES[key] = False
+        else:
+            self.loginWindow.show()
 
     def init_uic(self):
         self.register_window = QDialog()
@@ -240,6 +271,7 @@ class User_Server(Init_User_Server):
             self.register_window.name.setText('')
             self.register_window.phone.setText('')
             self.register_window.license.setText('')
+            self.register_window.image_frame.clear()
             self.register_window.close()
         elif dialog=='alert':
             self.add_alert.close()
@@ -269,6 +301,17 @@ class User_Server(Init_User_Server):
         elif dialog=='auther_check':
             self.auther_check_window.close()
 
+    def change_driving_mode(self):
+        if self.is_auto_driving:
+            self.select_mode.setText('수동 주행')
+            self.is_auto_driving = False
+            self.is_arrive = True
+            self.all_path = []
+
+        else:
+            self.position_window.show()
+            
+
     def add_img(self):
         img_path = QFileDialog.getOpenFileName(self, 'Open file', './', 'Image files (*.jpg *.png)')[0]
         self.register_window.img_path.setText(img_path)
@@ -283,9 +326,14 @@ class User_Server(Init_User_Server):
     def logout(self):
         self.is_login = False
         self.ID.setText('')
+        self.PW.setText('')
         self.login.show()
         self.register_2.show()
-        self.btn_logout.hide()        
+        self.btn_logout.hide()
+        self.face_recognition_model.known_face_encodings = []
+        self.face_recognition_model.known_face_names = []
+        self.face_recognition_model.my_face_encoding = None
+        self.face_recognition_model.my_image = None
         self.popup_window('main_window')
 
     def select_position(self):
@@ -363,31 +411,46 @@ class User_Server(Init_User_Server):
             # self.certify_window.frame = self.certify_window.frame.scaled(300, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             # self
 
-            if name != 'Unknown':
+            if name != 'Unknown' and not self.is_capturing:
                 self.close_window('certify')
                 self.face_thread.stop()
                 self.face_thread.running = False
                 self.video.release()
                 self.auther_check_window.show()
                 self.is_auther_check = True
+                self.is_boarding = True
+                
                 self.popup_window('map')
 
 
+    
+    def arrive_center(self):
+        self.is_center = True
+        self.is_boarding = False
+        self.checking()
+
     def checking_inside(self):
         self.checkinside.show()
+        self.close_window('return')
+        self.popup_window('main_window')
+        self.is_renting = False
+        self.is_return = True
+        self.is_arrive = False
+        self.renting_car()
+
         
     def checking(self):
-        self.is_renting = False
+        self.ROS_DOMAIN_ID = None
         self.is_auther_check = False
         self.is_arrive = False
         self.car_thread.stop()
         self.myCar.destroy_node()
         self.battery_check.stop()
-        # self.map_thread.stop()
+        self.map_thread.stop()
         self.cardb.update_values('car', 'is_rented=0', f'car_number="{str(self.rentcar_number)}"')
         rclpy.shutdown()
-        self.close_window('return')
-        self.popup_window('main_window')
+        # self.close_window('return')
+        # self.popup_window('main_window')
         self.rentcar_number = None 
         self.all_path, self.waypoints = None, None
     
@@ -406,35 +469,60 @@ class User_Server(Init_User_Server):
 
     def set_arrive(self):
         self.is_auther_check = True
-        self.all_path, self.waypoints = None, None
+        self.is_auto_driving = False
+        self.select_mode.setText('수동 주행')
+        self.select_mode.setEnabled(True)
+        self.all_path = []
+        self.is_arrive = True
+        
         self.arrive_window.show()
-        self.popup_window('main_window')
+        if not self.is_boarding:
+            self.popup_window('main_window')
 
 
     def renting_car(self):
-        self.is_renting = True 
+        self.select_mode.setText('자동 주행')
+        self.is_auto_driving = True
+        
+        if not self.is_boarding:
+            self.select_mode.setEnabled(False)
+
+        self.is_arrive = False
+        self.all_path = None
+
+        if self.is_return:
+            self.is_renting = False
+            self.goal_x, self.goal_y = 0, 0
+            self.popup_window('main_window')
+
         goal_x, goal_y = self.position_window.p_x, self.position_window.p_y
         w, h = self.position_window.map.width(), self.position_window.map.height()
-        self.goal_x = goal_x*(self.origin_x/w)
-        self.goal_y = goal_y*(self.origin_y/h)
-        
-        self.close_window('position')        
-        self.cardb.update_values('car', 'is_rented=1', f'car_number="{str(self.rentcar_number)}"')
-        self.close_window('renting')
-        self.popup_window('map')
 
-        car = self.cardb.car_dict[self.rentcar_number]
-        ROS_DOMAIN_ID = car.pin_number
+        self.goal_x = goal_x*(self.croped_x/w)
+        self.goal_y = goal_y*(self.croped_y/h)
 
-        os.environ['ROS_DOMAIN_ID'] = ROS_DOMAIN_ID
-        self.car_thread = CarThread(target=self.running_car)
-        self.car_thread.start()
-        self.car_thread.running = True
-        self.battery_check.start()
-        self.battery_check.running = True
-        self.map_thread.start()
-        self.map_thread.running = True
+        if self.ROS_DOMAIN_ID == None:
+            self.is_renting = True 
+            self.close_window('position')        
+            self.cardb.update_values('car', 'is_rented=1', f'car_number="{str(self.rentcar_number)}"')
+            self.close_window('renting')
+            self.popup_window('map')
+            car = self.cardb.car_dict[self.rentcar_number]
+            self.ROS_DOMAIN_ID = car.pin_number
 
+            os.environ['ROS_DOMAIN_ID'] = self.ROS_DOMAIN_ID
+            self.car_thread = CarThread(target=self.running_car)
+            self.car_thread.start()
+            self.car_thread.running = True
+            self.battery_check.start()
+            self.battery_check.running = True
+            self.map_thread.start()
+            self.map_thread.running = True
+        else:
+            self.close_window('position')        
+            self.cardb.update_values('car', 'is_rented=1', f'car_number="{str(self.rentcar_number)}"')
+            self.close_window('renting')
+            self.popup_window('map')
 
     def update_battery(self):
         car = self.cardb.car_dict[self.rentcar_number]
@@ -461,27 +549,11 @@ class User_Server(Init_User_Server):
         self.renting_window.show()
         self.rentcar_number = car_number
 
-        
-    def popup_window(self, window_type):
-        self.cardb.init_db()
-        self.is_login=True
-        if self.is_login or window_type=='main_window' or window_type=='login':
-            for key, value in self.WINDOW_TYPES.items():
-                if key == window_type:
-                    if self.WINDOW_TYPES[key]==False:
-                        self.OPEN_WINDOW[key]()
-
-                    self.WINDOW_TYPES[key] = True
-                else:
-                    if self.WINDOW_TYPES[key]==True:
-                        self.HIDE_WINDOW[key]()
-                    self.WINDOW_TYPES[key] = False
-        else:
-            self.loginWindow.show()
 
     def click_enter(self):
+        self.memdb.init_db()
         id = self.ID.text()
-
+        print(self.memdb.IDPW)
         if id == 'admin':
             if self.password == '1234':
                 self.is_login = True
@@ -535,33 +607,36 @@ class User_Server(Init_User_Server):
     def keyPressEvent(self, event):
         linear_x = 0.3
         angular_z = 1.
-        if event.key() == Qt.Key_W: 
-            self.myCar.msg.linear.x = linear_x
-            self.myCar.msg.angular.z = 0.
-        elif event.key() == Qt.Key_Q:
-            self.myCar.msg.linear.x = linear_x
-            self.myCar.msg.angular.z = angular_z
-        elif event.key() == Qt.Key_E:
-            self.myCar.msg.linear.x = linear_x
-            self.myCar.msg.angular.z = -angular_z
-        elif event.key() == Qt.Key_X:
-            self.myCar.msg.linear.x = -linear_x
-            self.myCar.msg.angular.z = 0.
-        elif event.key() == Qt.Key_Z:
-            self.myCar.msg.linear.x = -linear_x
-            self.myCar.msg.angular.z = -angular_z
-        elif event.key() == Qt.Key_C:
-            self.myCar.msg.linear.x = -linear_x
-            self.myCar.msg.angular.z = angular_z
-        elif event.key() == Qt.Key_A:
-            self.myCar.msg.angular.z = angular_z
-        elif event.key() == Qt.Key_D:
-            self.myCar.msg.angular.z = -angular_z
-        elif event.key() == Qt.Key_S:
+        if not (self.is_auto_driving):
+            if event.key() == Qt.Key_W: 
+                self.myCar.msg.linear.x = linear_x
+                self.myCar.msg.angular.z = 0.
+            elif event.key() == Qt.Key_Q:
+                self.myCar.msg.linear.x = linear_x
+                self.myCar.msg.angular.z = angular_z
+            elif event.key() == Qt.Key_E:
+                self.myCar.msg.linear.x = linear_x
+                self.myCar.msg.angular.z = -angular_z
+            elif event.key() == Qt.Key_X:
+                self.myCar.msg.linear.x = -linear_x
+                self.myCar.msg.angular.z = 0.
+            elif event.key() == Qt.Key_Z:
+                self.myCar.msg.linear.x = -linear_x
+                self.myCar.msg.angular.z = -angular_z
+            elif event.key() == Qt.Key_C:
+                self.myCar.msg.linear.x = -linear_x
+                self.myCar.msg.angular.z = angular_z
+            elif event.key() == Qt.Key_A:
+                self.myCar.msg.angular.z = angular_z
+            elif event.key() == Qt.Key_D:
+                self.myCar.msg.angular.z = -angular_z
+            elif event.key() == Qt.Key_S:
+                self.myCar.msg.linear.x = 0.                        
+                self.myCar.msg.angular.z = 0.             
+        else:
             self.myCar.msg.linear.x = 0.                        
-            self.myCar.msg.angular.z = 0.                                           
-            self.is_arrive = True
-        
+            self.myCar.msg.angular.z = 0.             
+            
 
     def set_Threads(self):
         self.battery_check = Thread(sec=3)
@@ -574,7 +649,6 @@ class User_Server(Init_User_Server):
         self.face_thread.data.connect(self.matching_face)
 
     def update_map(self):
-        # try:
         try:
             px, py = 0.84, 0.94
             data = self.myCar.pos 
@@ -585,76 +659,97 @@ class User_Server(Init_User_Server):
             pos_x, pos_y = position.x, position.y
             
             self.cardb.update_values('car', f'pos="{pos_x}, {pos_y}"', f'car_number="{str(self.rentcar_number)}"')
-            # pgm파일 x100배 한 좌표
-            pos_x = (px + pos_x)*100-16
-            pos_y = (self.origin_y - (py + pos_y)*100)-18
+        except:
+            return
+        # pgm파일 x100배 한 좌표
+        pos_x = (px + pos_x)*100-16
+        pos_y = (self.origin_y - (py + pos_y)*100)-18
 
-            plan_x, plan_y = int(pos_x*(183/(self.origin_x  - 16*2)))+5, int(pos_y*(270/(self.origin_y  - 18*2)))
-            print(plan_x, plan_y)
-            print(int(self.goal_x), int(self.goal_y))
-            if self.all_path is None and not self.is_arrive:
-                
+        plan_x, plan_y = int(pos_x*(183/(self.origin_x  - 16*2)))+5, int(pos_y*(270/(self.origin_y  - 18*2 -4)))
+        try:
+            if (self.all_path is None or self.lose_path) and not self.is_arrive:
                 origin_x = 184
                 origin_y = 270
-                self.all_path, _ = self.pathplanner.generate_waypoint((plan_x, plan_y), (self.goal_x, self.goal_y))
-                self.is_center = False
+                
+                self.all_path, error = self.pathplanner.generate_waypoint((plan_x, plan_y), (int(self.goal_x), int(self.goal_y)), self.is_renting, not(self.is_center))
+                
+                if error and not (self.is_return):
+                    self.all_path = []
+                else:
+                    self.lose_path = False
+                    for i in range(len(self.all_path)):
+                        self.all_path[i][0] = int(self.all_path[i][0] * (-0.2 + self.map_w/origin_x))
+                        self.all_path[i][1] = int((self.all_path[i][1]-2) * (0.6+self.map_h/origin_y))
 
-                for i in range(len(self.all_path)):
-                    self.all_path[i][0] = int(self.all_path[i][0] * (-0.2 + self.map_w/origin_x))
-                    self.all_path[i][1] = int((self.all_path[i][1]-2) * (0.6+self.map_h/origin_y))
+                    if not self.is_renting:
+                        self.goal_x, self.goal_y = self.all_path[-1]
+        except:
+            return
 
-                    
-            
-            pos_x = int((pos_x) * (self.map_w/(self.origin_x  - 16*2)))
-            pos_y = int((pos_y) * (self.map_h/(self.origin_y - 18*2)))
+        pos_x = int((pos_x) * (self.map_w/(self.origin_x  - 16*2)))
+        pos_y = int((pos_y) * (self.map_h/(self.origin_y - 18*2)))
 
-            if self.is_renting:
-                self.map_frame.setPixmap(self.pixmap)
-                painter = QPainter(self.map_frame.pixmap())
-                if not self.is_arrive:
-                    goal_x = int((self.goal_x-4) * (self.map_w/self.origin_x))
-                    goal_y = int((self.goal_y-5) * (self.map_h/self.origin_y))
+        if pos_x > 880 and pos_y > 2470 and pos_x < 2070 and pos_y < 3220:
+            self.is_center=True
+        else:
+            self.is_center=False
 
-                    self.all_path[0] = [pos_y+50, pos_x+50]
-                    self.all_path[-1] = [goal_y+50, goal_x+50]
+        if self.is_renting:
+            self.map_frame.setPixmap(self.pixmap)
+            painter = QPainter(self.map_frame.pixmap())
+            if not self.is_arrive and len(self.all_path) > 0:
+                goal_x = int((self.goal_x-4) * (self.map_w/self.croped_x))
+                goal_y = int((self.goal_y-4) * (self.map_h/self.croped_y))
+                
+                self.all_path[0] = [pos_y+50, pos_x+50]
+                self.all_path[-1] = [goal_y+50, goal_x+50]
+                for i in range(len(self.all_path)-1):
+                    painter.setPen(QPen(Qt.green, 20))
+                    painter.setBrush(QBrush(Qt.green))
+                    cur_points = self.all_path[i]
+                    next_points = self.all_path[i+1]
+                    cur_x, cur_y = cur_points
+                    next_x, next_y = next_points
+                    painter.drawLine(cur_y, cur_x, next_y, next_x)
+                painter.setPen(QPen(Qt.blue, 5))
+                painter.setBrush(QBrush(Qt.blue))
+                painter.drawEllipse(goal_x, goal_y, 100, 100)
+                
+            painter.setPen(QPen(Qt.red, 5))
+            painter.setBrush(QBrush(Qt.red))
+            painter.drawEllipse(pos_x, pos_y, 100, 100)
+            painter.end()
+        else:
+            if len(self.all_path) > 0:
+                goal_x, goal_y = int(self.goal_y), int(self.goal_x)
+                self.all_path[0] = [pos_y+50, pos_x+50]
+                self.all_path[-1] = [goal_y+50, goal_x+50]
 
-                    for i in range(len(self.all_path)-1):
-                        painter.setPen(QPen(Qt.green, 20))
-                        painter.setBrush(QBrush(Qt.green))
-                        cur_points = self.all_path[i]
-                        next_points = self.all_path[i+1]
-                        cur_x, cur_y = cur_points
-                        next_x, next_y = next_points
-                        painter.drawLine(cur_y, cur_x, next_y, next_x)
-                    painter.setPen(QPen(Qt.blue, 5))
-                    painter.setBrush(QBrush(Qt.blue))
-                    painter.drawEllipse(goal_x, goal_y, 100, 100)
-
-                painter.setPen(QPen(Qt.red, 5))
-                painter.setBrush(QBrush(Qt.red))
-                painter.drawEllipse(pos_x, pos_y, 100, 100)
-                painter.end()
-            else:
                 for i in range(len(self.all_path)-1):
                     cur_points = self.all_path[i]
                     next_points = self.all_path[i+1]
                     cur_x, cur_y = cur_points
                     next_x, next_y = next_points
 
+        if len(self.all_path) > 0:
             if len(self.all_path) == 1:
                 self.is_arrive = True
-                self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[0][1], self.all_path[0][0], z, w, self.is_arrive}'
-                
-                self.set_arrive()
+                self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[0][1], self.all_path[0][0], z, w, self.is_arrive, not(self.is_auto_driving)}'
+                if self.is_renting:
+                    self.set_arrive()
+                else:
+                    self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[0][1], self.all_path[0][0], z, w, True, True}'
+                    self.arrive_center()
             else:
+                self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[1][1], self.all_path[1][0], z, w, self.is_arrive, not(self.is_auto_driving)}'
+                if np.linalg.norm(self.all_path[0] - self.all_path[1]) > 700:
+                    self.lose_path = True
+                    return
+
                 if np.linalg.norm(self.all_path[0] - self.all_path[1]) < 200:
                     self.all_path = self.all_path[1:]
-                
-                self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[1][1], self.all_path[1][0], z, w, self.is_arrive}'
-                # self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[1][1], self.all_path[1][0], z, w, True}'
-
-        except:
-            pass
+        # except:
+        #     pass
 
 
 
