@@ -262,6 +262,15 @@ class PathPlanning():
                 # print('유효한 좌표')
                 return True
 
+        def get_line_points(p1, p2, num_points):
+            y1, x1 = p1
+            y2, x2 = p2
+            
+            x_values = np.linspace(x1, x2, num_points)
+            y_values = np.linspace(y1, y2, num_points)
+            
+            return [(int(round(x)), int(round(y))) for x, y in zip(x_values, y_values)]
+
         # wp number
         wp_num = {
             0 : (108, 237),
@@ -288,7 +297,8 @@ class PathPlanning():
             21 : (85, 45),
             22 : (150, 97),
             23 : (121, 237),
-            24 : (44,95),
+            # 24 : (44,95),
+            24 : (31,95),
             25 : (150, 45),
             26 : (108, 216),
             # 일방 통행 좌표용
@@ -392,11 +402,9 @@ class PathPlanning():
             # print('겹치지 않음')
             overlap = False
 
-
         # 둘 다 True 면 실행되야 함.
         start_valid = valid_start_goal(start)
         goal_valid = valid_start_goal(goal)
-
 
         if start_valid and goal_valid:
             # 장애물 주변 가중치 추가
@@ -496,8 +504,11 @@ class PathPlanning():
                                 wp_goal = wp_path[i + 1]
                             except:
                                 pass
-
-                        part_path, _ = (a_star((wp_start[1], wp_start[0]), (wp_goal[1], wp_goal[0]), waypoint_graph, grid=grid, weight_map=weight_map))
+                        
+                        if wp_start == wp_num[24] and wp_goal == wp_num[5]:
+                            part_path = get_line_points(wp_start, wp_goal, num_points=10)
+                        else:
+                            part_path, _ = (a_star((wp_start[1], wp_start[0]), (wp_goal[1], wp_goal[0]), waypoint_graph, grid=grid, weight_map=weight_map))
                         real_path = np.array(part_path)
 
                         # print(f'샘플링하기 전 real_path 갯수 = {len(real_path)}')
