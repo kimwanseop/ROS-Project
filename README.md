@@ -58,8 +58,15 @@
 ## 3-2 Vehicle Driving Algorithm
 ![Screenshot from 2025-02-10 16-37-54](https://github.com/user-attachments/assets/aa03fa29-059b-4dc4-ab47-c9e1b6fb73a5)
 
-## 3-3 Vehicle Management Algorithm
+## 3-3 Vehicle Management System
 ![Screenshot from 2025-02-10 16-38-28](https://github.com/user-attachments/assets/a32f0f59-ea6c-4785-b7da-6b99f0672d34)
+
+## 3-4 Car Classification Algorithm
+![damage](https://github.com/user-attachments/assets/945d57c7-ddc1-4aba-a809-16e7cb7c5237) ![perfect](https://github.com/user-attachments/assets/a6c8c360-abe0-49e3-b53c-44985b33ad25) <br>
+**1. 차량 손상, 정상 이미지 (car_damage 696장, car_perfect 724장) 데이터 분류** <br>
+**2. 데이터 전처리 (데이터셋 80% 학습 / 20% 테스트로 분할)** <br>
+**3. Timm 라이브러리 사용하여 ResNet-18 (사전학습된 모델) 로딩** <br>
+**4. OpenCV 실시간 자동차 손상 여부 자동 분류 가능**
 
 # 4. Conclusion
 ## Responsibility & Stacks
