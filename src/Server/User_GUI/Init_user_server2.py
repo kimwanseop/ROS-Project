@@ -46,6 +46,7 @@ class Init_User_Server(QMainWindow, form_class):
         self.memdb = MemberDB()
     
     def initalize(self):
+        
         self.is_login=False 
         self.is_renting = False
         self.is_boarding = False
@@ -86,11 +87,15 @@ class Init_User_Server(QMainWindow, form_class):
             self.label_boarding.hide()
         
         if self.is_renting:
+            self.btn_boarding.show()
+            self.label_boarding.show()
             self.btn_start.hide()
             self.label_start.hide()
         else:
             self.btn_start.show()
             self.label_start.show()
+            self.btn_boarding.hide()
+            self.label_boarding.hide()
 
 
     def hide_main_window(self):
@@ -126,17 +131,21 @@ class Init_User_Server(QMainWindow, form_class):
             self.select_mode.show()
             if self.is_boarding:
                 self.btn_boarding.show()
+                self.btn_home.setText('Get Off')
+                # self.is_boarding = False
             else:
                 self.btn_boarding.hide()
+                self.btn_home.setText('Home')
             # self.map_thread.start()
         else:
+            self.btn_home.setText('Home')
             self.select_mode.hide()
             self.btn_return.hide()
             self.btn_rent.show()
             self.battery_bg.hide()
             self.battery_green.hide()
             self.battery_percent.hide()
-            self.btn_boarding.hide()
+            
 
     def hide_map_window(self):
         self.map_widget.hide()

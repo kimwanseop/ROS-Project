@@ -82,6 +82,7 @@ class User_Server(Init_User_Server):
 
     def init_parameters(self):
         self.popup_window('main_window')
+        self.filename, self.save_frame = None, None
         self.ROS_DOMAIN_ID = None
         self.is_capturing = False
         self.is_start=False
@@ -95,7 +96,7 @@ class User_Server(Init_User_Server):
         self.croped_x, self.croped_y = self.origin_x - 16*2, self.origin_y - 16*2 - 4
         self.goal_x, self.goal_y = None, None,
         self.all_path, self.waypoints = None, None
-        self.is_arrive = False
+        self.is_arrive = True
         self.is_auto_driving = False
         self.USER_ID = None
         pos_center = self.center_area.geometry()
@@ -108,7 +109,7 @@ class User_Server(Init_User_Server):
 
         self.pathplanner = PathPlanning()
         self.face_detection = DetectionModel().cuda()
-        self.face_recognition_model = FaceRecognitionModel()
+        self.face_recognition_model = FaceRecognitionModel(self.face_detection)
         
     def init_btns(self):
         self.btn_return.clicked.connect(self.checking_inside)
@@ -127,6 +128,12 @@ class User_Server(Init_User_Server):
         self.btn_enter.clicked.connect(self.click_enter)
         self.car_searchbar.textChanged.connect(self.search_car)
         self.car_select_info_type.currentIndexChanged.connect(self.search_car)
+
+    def checking_arrive(self):
+        if self.is_arrive:
+            self.popup_window('main_window') 
+        else:
+            self.get_off_window.show()
         
     def add_member(self):
         ID = self.register_window.id.text().strip()
@@ -145,8 +152,10 @@ class User_Server(Init_User_Server):
             self.add_alert.show()
             return
         else:
+            cv2.imwrite(self.filename, cv2.cvtColor(self.save_frame, cv2.COLOR_RGB2BGR))
             member = Member(name, phone, license, img_path)
             member.ID, member.PW = ID, PW
+            self.filename, self.save_frame = None, None
             self.memdb.add_member(member)
             self.popup_window('main_window')
             self.register_window.id.setText('')
@@ -260,6 +269,10 @@ class User_Server(Init_User_Server):
         uic.loadUi('./UI/auther_check.ui', self.auther_check_window)
         self.auther_check_window.alert_ok.clicked.connect(lambda: self.close_window('auther_check'))
 
+        self.get_off_window = QDialog()
+        uic.loadUi('./UI/get_off_alert.ui', self.get_off_window)
+        self.get_off_window.alert_ok.clicked.connect(lambda: self.close_window('get_off'))
+
 
     def close_window(self, dialog):
         if dialog=='return':
@@ -300,6 +313,8 @@ class User_Server(Init_User_Server):
             self.face_alert_window.close()
         elif dialog=='auther_check':
             self.auther_check_window.close()
+        elif dialog=='get_off':
+            self.get_off_window.close()
 
     def change_driving_mode(self):
         if self.is_auto_driving:
@@ -315,8 +330,9 @@ class User_Server(Init_User_Server):
     def add_img(self):
         img_path = QFileDialog.getOpenFileName(self, 'Open file', './', 'Image files (*.jpg *.png)')[0]
         self.register_window.img_path.setText(img_path)
+        w, h = self.register_window.image_frame.width(), self.register_window.image_frame.height()
         pixmap = QPixmap(img_path)
-        pixmap = pixmap.scaled(300, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        pixmap = pixmap.scaled(w, h, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
         self.register_window.image_frame.setPixmap(pixmap)
 
@@ -341,6 +357,9 @@ class User_Server(Init_User_Server):
         self.close_window('renting')
 
     def checking_user(self):
+        self.start_time = time.time()
+        self.end_time = time.time()
+        self.duration = 0
         self.video = cv2.VideoCapture(-1)
         self.face_thread.start()
         self.face_thread.running = True
@@ -376,10 +395,10 @@ class User_Server(Init_User_Server):
         self.register_window.image_frame.setPixmap(self.frame_pixmap)
 
         name = self.register_window.id.text().strip()
-        filename = os.path.join('Face', name + '.png')
-        self.register_window.img_path.setText(filename)
+        self.filename = os.path.join('Face', name + '.png')
+        self.register_window.img_path.setText(self.filename)
+        self.save_frame = copy.deepcopy(frame)
         
-        cv2.imwrite(filename, cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
 
         self.is_capturing = False
         self.close_window('certify')
@@ -390,18 +409,20 @@ class User_Server(Init_User_Server):
     def matching_face(self):
         ret, frame = self.video.read()
         name = None
+
         if ret:
-            # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            self.end_time = time.time()
+            self.duration = self.end_time - self.start_time
+
             frame = cv2.flip(frame, 1)
             self.image = frame
 
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             if not self.is_capturing:
-                try:
-                    frame, name = self.face_recognition_model.face_athentication(frame)
-                    # self.face_recognition_model.draw_boxes(frame, face_locations, face_names)
-                except:
-                    pass
+                # try:
+                frame, name = self.face_recognition_model.face_athentication(frame)
+                # except:
+                    # pass
             h, w, c = frame.shape
             qImg = QImage(frame, w, h, w*c, QImage.Format_RGB888)
             self.frame_pixmap = self.frame_pixmap.fromImage(qImg)
@@ -410,17 +431,19 @@ class User_Server(Init_User_Server):
             self.certify_window.frame.setPixmap(self.frame_pixmap)
             # self.certify_window.frame = self.certify_window.frame.scaled(300, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             # self
-
-            if name != 'Unknown' and not self.is_capturing:
-                self.close_window('certify')
-                self.face_thread.stop()
-                self.face_thread.running = False
-                self.video.release()
-                self.auther_check_window.show()
-                self.is_auther_check = True
-                self.is_boarding = True
-                
-                self.popup_window('map')
+            
+            if self.duration > 5:
+                if name != 'Unknown' and not self.is_capturing:
+                    self.end_time, self.start_time = 0, 0
+                    self.close_window('certify')
+                    self.face_thread.stop()
+                    self.face_thread.running = False
+                    self.video.release()
+                    self.auther_check_window.show()
+                    self.is_auther_check = True
+                    self.is_boarding = True
+                    
+                    self.popup_window('map')
 
 
     
@@ -440,6 +463,7 @@ class User_Server(Init_User_Server):
 
         
     def checking(self):
+        time.sleep(1)
         self.ROS_DOMAIN_ID = None
         self.is_auther_check = False
         self.is_arrive = False
@@ -525,8 +549,8 @@ class User_Server(Init_User_Server):
             self.popup_window('map')
 
     def update_battery(self):
-        car = self.cardb.car_dict[self.rentcar_number]
         try:
+            car = self.cardb.car_dict[self.rentcar_number]
             if self.myCar.battery == 0:
                 battery = car.battery
             else:
@@ -553,7 +577,6 @@ class User_Server(Init_User_Server):
     def click_enter(self):
         self.memdb.init_db()
         id = self.ID.text()
-        print(self.memdb.IDPW)
         if id == 'admin':
             if self.password == '1234':
                 self.is_login = True
@@ -649,6 +672,7 @@ class User_Server(Init_User_Server):
         self.face_thread.data.connect(self.matching_face)
 
     def update_map(self):
+
         try:
             px, py = 0.84, 0.94
             data = self.myCar.pos 
@@ -659,21 +683,20 @@ class User_Server(Init_User_Server):
             pos_x, pos_y = position.x, position.y
             
             self.cardb.update_values('car', f'pos="{pos_x}, {pos_y}"', f'car_number="{str(self.rentcar_number)}"')
-        except:
-            return
-        # pgm파일 x100배 한 좌표
-        pos_x = (px + pos_x)*100-16
-        pos_y = (self.origin_y - (py + pos_y)*100)-18
 
-        plan_x, plan_y = int(pos_x*(183/(self.origin_x  - 16*2)))+5, int(pos_y*(270/(self.origin_y  - 18*2 -4)))
-        try:
+            # pgm파일 x100배 한 좌표
+            pos_x = (px + pos_x)*100-16
+            pos_y = (self.origin_y - (py + pos_y)*100)-18
+
+            plan_x, plan_y = int(pos_x*(183/(self.origin_x  - 16*2)))+5, int(pos_y*(270/(self.origin_y  - 18*2 -4)))
+            print(self.lose_path, self.is_arrive, self.is_center)
             if (self.all_path is None or self.lose_path) and not self.is_arrive:
                 origin_x = 184
                 origin_y = 270
                 
                 self.all_path, error = self.pathplanner.generate_waypoint((plan_x, plan_y), (int(self.goal_x), int(self.goal_y)), self.is_renting, not(self.is_center))
                 
-                if error and not (self.is_return):
+                if error:
                     self.all_path = []
                 else:
                     self.lose_path = False
@@ -683,73 +706,76 @@ class User_Server(Init_User_Server):
 
                     if not self.is_renting:
                         self.goal_x, self.goal_y = self.all_path[-1]
-        except:
-            return
+            pos_x = int((pos_x) * (self.map_w/(self.origin_x  - 16*2)))
+            pos_y = int((pos_y) * (self.map_h/(self.origin_y - 18*2)))
 
-        pos_x = int((pos_x) * (self.map_w/(self.origin_x  - 16*2)))
-        pos_y = int((pos_y) * (self.map_h/(self.origin_y - 18*2)))
-
-        if pos_x > 880 and pos_y > 2470 and pos_x < 2070 and pos_y < 3220:
-            self.is_center=True
-        else:
-            self.is_center=False
-
-        if self.is_renting:
-            self.map_frame.setPixmap(self.pixmap)
-            painter = QPainter(self.map_frame.pixmap())
-            if not self.is_arrive and len(self.all_path) > 0:
-                goal_x = int((self.goal_x-4) * (self.map_w/self.croped_x))
-                goal_y = int((self.goal_y-4) * (self.map_h/self.croped_y))
-                
-                self.all_path[0] = [pos_y+50, pos_x+50]
-                self.all_path[-1] = [goal_y+50, goal_x+50]
-                for i in range(len(self.all_path)-1):
-                    painter.setPen(QPen(Qt.green, 20))
-                    painter.setBrush(QBrush(Qt.green))
-                    cur_points = self.all_path[i]
-                    next_points = self.all_path[i+1]
-                    cur_x, cur_y = cur_points
-                    next_x, next_y = next_points
-                    painter.drawLine(cur_y, cur_x, next_y, next_x)
-                painter.setPen(QPen(Qt.blue, 5))
-                painter.setBrush(QBrush(Qt.blue))
-                painter.drawEllipse(goal_x, goal_y, 100, 100)
-                
-            painter.setPen(QPen(Qt.red, 5))
-            painter.setBrush(QBrush(Qt.red))
-            painter.drawEllipse(pos_x, pos_y, 100, 100)
-            painter.end()
-        else:
-            if len(self.all_path) > 0:
-                goal_x, goal_y = int(self.goal_y), int(self.goal_x)
-                self.all_path[0] = [pos_y+50, pos_x+50]
-                self.all_path[-1] = [goal_y+50, goal_x+50]
-
-                for i in range(len(self.all_path)-1):
-                    cur_points = self.all_path[i]
-                    next_points = self.all_path[i+1]
-                    cur_x, cur_y = cur_points
-                    next_x, next_y = next_points
-
-        if len(self.all_path) > 0:
-            if len(self.all_path) == 1:
-                self.is_arrive = True
-                self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[0][1], self.all_path[0][0], z, w, self.is_arrive, not(self.is_auto_driving)}'
-                if self.is_renting:
-                    self.set_arrive()
-                else:
-                    self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[0][1], self.all_path[0][0], z, w, True, True}'
-                    self.arrive_center()
+            if pos_x > 880 and pos_y > 2470 and pos_x < 2070 and pos_y < 3220:
+                self.is_center=True
             else:
-                self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[1][1], self.all_path[1][0], z, w, self.is_arrive, not(self.is_auto_driving)}'
-                if np.linalg.norm(self.all_path[0] - self.all_path[1]) > 700:
-                    self.lose_path = True
-                    return
+                self.is_center=False
 
-                if np.linalg.norm(self.all_path[0] - self.all_path[1]) < 200:
-                    self.all_path = self.all_path[1:]
-        # except:
-        #     pass
+            if self.is_renting:
+                self.map_frame.setPixmap(self.pixmap)
+                painter = QPainter(self.map_frame.pixmap())
+                if not self.is_arrive and len(self.all_path) > 0:
+                    goal_x = int((self.goal_x-4) * (self.map_w/self.croped_x))
+                    goal_y = int((self.goal_y-4) * (self.map_h/self.croped_y))
+                    
+                    self.all_path[0] = [pos_y+50, pos_x+50]
+                    self.all_path[-1] = [goal_y+50, goal_x+50]
+                    for i in range(len(self.all_path)-1):
+                        painter.setPen(QPen(Qt.green, 20))
+                        painter.setBrush(QBrush(Qt.green))
+                        cur_points = self.all_path[i]
+                        next_points = self.all_path[i+1]
+                        cur_x, cur_y = cur_points
+                        next_x, next_y = next_points
+                        painter.drawLine(cur_y, cur_x, next_y, next_x)
+                    painter.setPen(QPen(Qt.blue, 5))
+                    painter.setBrush(QBrush(Qt.blue))
+                    painter.drawEllipse(goal_x, goal_y, 100, 100)
+                    
+                painter.setPen(QPen(Qt.red, 5))
+                painter.setBrush(QBrush(Qt.red))
+                painter.drawEllipse(pos_x, pos_y, 100, 100)
+                painter.end()
+            else:
+                if len(self.all_path) > 0:
+                    goal_x, goal_y = int(self.goal_y), int(self.goal_x)
+                    self.all_path[0] = [pos_y+50, pos_x+50]
+                    self.all_path[-1] = [goal_y+50, goal_x+50]
+
+                    for i in range(len(self.all_path)-1):
+                        cur_points = self.all_path[i]
+                        next_points = self.all_path[i+1]
+                        cur_x, cur_y = cur_points
+                        next_x, next_y = next_points
+            left_waypoints = len(self.all_path)
+            if left_waypoints > 0:
+                if left_waypoints == 1:
+                    self.is_arrive = True
+                    self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[0][1], self.all_path[0][0], z, w, True, True}'
+                    if self.is_renting:
+                        self.set_arrive()
+                    else:
+                        self.arrive_center()
+                else:
+                    self.myCar.waypoint.data = f'{pos_x, pos_y, self.all_path[1][1], self.all_path[1][0], z, w, self.is_arrive, not(self.is_auto_driving)}'
+                    if np.linalg.norm(self.all_path[0] - self.all_path[1]) > 1000:
+                        self.lose_path = True
+                        return
+                    if left_waypoints == 2:
+                        if np.linalg.norm(self.all_path[0] - self.all_path[1]) < 300:
+                            self.all_path = self.all_path[1:]
+                    else:
+                        if np.linalg.norm(self.all_path[0] - self.all_path[1]) < 500:
+                            self.all_path = self.all_path[1:]
+
+            else:
+                self.myCar.waypoint.data = f'{pos_x, pos_y, 0, 0, z, w, self.is_arrive, not(self.is_auto_driving)}'
+                    
+        except:
+            pass
 
 
 

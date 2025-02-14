@@ -5,18 +5,21 @@ from torchvision import transforms
 from huggingface_hub import hf_hub_download
 from ultralytics import YOLO
 from supervision import Detections
+import dlib
 import timm
 import cv2
 import os
 import numpy as np
 
+dlib.DLIB_USE_CUDA = True
 
 class FaceRecognitionModel():
-    def __init__(self):
+    def __init__(self, face_detection):
         super().__init__()
         self.known_face_encodings = []
         self.known_face_names = []
-        self.face_detection = DetectionModel()
+        self.face_detection = face_detection
+        
 
     def set_user_image(self, path):
         self.my_image = face_recognition.load_image_file(path)
@@ -28,21 +31,22 @@ class FaceRecognitionModel():
 
     def face_athentication(self, frame):
         face, bbox = self.face_detection(frame)
-        face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
-        face_encodings = face_recognition.face_encodings(face)
+        try:
+            face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+            face_encodings = face_recognition.face_encodings(face)
+            for face_encoding in face_encodings:
+                matches = face_recognition.compare_faces(self.known_face_encodings[0], face_encoding, tolerance=0.35)
+                name = "unknown"
 
-        for face_encoding in face_encodings:
-            matches = face_recognition.compare_faces(self.known_face_encodings[0], face_encoding, tolerance=0.35)
-            name = "unknown"
-
-            if True in matches:
-                first_match_index = matches.index(True)
-                name = self.known_face_names[first_match_index]
-        
-        cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 2)
-        font = cv2.FONT_HERSHEY_DUPLEX
-        cv2.putText(frame, name, (bbox[0]+6, bbox[3]-6), font, .5, (255, 255, 255), 1)
-        return frame, name
+                if True in matches:
+                    first_match_index = matches.index(True)
+                    name = self.known_face_names[first_match_index]
+            cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 2)
+            font = cv2.FONT_HERSHEY_DUPLEX
+            cv2.putText(frame, name, (bbox[0]+6, bbox[3]-6), font, .5, (255, 255, 255), 1)
+            return frame, name
+        except:
+            return frame, "unknown"
         # return bbox, face_names
 
     def draw_boxes(self, frame, face_locations, face_names):

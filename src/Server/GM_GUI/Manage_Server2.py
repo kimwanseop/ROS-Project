@@ -248,11 +248,27 @@ class Manage_Server(Init_Manage_Server, form_class):
             self.loginWindow.close()
         elif dialog == 'add_car':
             self.add_carWindow.close()
+            self.add_carWindow.add_number.setText('')
+            self.add_carWindow.add_brand.setText('')
+            self.add_carWindow.add_name.setText('')
+            self.add_carWindow.add_type.setText('')
+            self.add_carWindow.add_pin.setText('')
+            self.add_carWindow.add_img_path.setText('')
+            self.add_carWindow.add_image_frame.clear()
         elif dialog == 'alert':
             self.add_alert.close()
         elif dialog == 'login_alert':
             self.log_alert.close()
         elif dialog == 'add_member':
+            self.add_member.close()
+            self.add_member.id.setText('')
+            self.add_member.pw.setText('')
+            self.add_member.pw_check.setText('')
+            self.add_member.name.setText('')
+            self.add_member.phone.setText('')
+            self.add_member.license.setText('')
+            self.add_member.img_path.setText('')
+            self.add_member.image_frame.clear()
             self.add_member.close()
         elif dialog == 'pw_alert':
             self.pw_alert.close()
@@ -264,8 +280,9 @@ class Manage_Server(Init_Manage_Server, form_class):
     def add_member_load_img(self):
         img_path = QFileDialog.getOpenFileName(self, 'Open file', './', 'Image files (*.jpg *.png)')[0]
         self.add_member.img_path.setText(img_path)
+        w, h = self.add_member.image_frame.width(), self.add_member.image_frame.height()
         pixmap = QPixmap(img_path)
-        pixmap = pixmap.scaled(300, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        pixmap = pixmap.scaled(w, h, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
         self.add_member.image_frame.setPixmap(pixmap)    
 
@@ -298,6 +315,7 @@ class Manage_Server(Init_Manage_Server, form_class):
             self.add_member.phone.setText('')
             self.add_member.license.setText('')
             self.add_member.img_path.setText('')
+            self.add_member.image_frame.clear()
             self.add_member.close()
         
     def add_car(self):

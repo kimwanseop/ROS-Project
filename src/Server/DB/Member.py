@@ -32,6 +32,7 @@ class MemberDB(ASAP_DB):
         self.name = {} # 회원 이름 : 회원 번호
         self.IDPW = {}
         self.init_db()
+        print(self.IDPW)
 
     def add_member(self, member:Member):
         while True :
@@ -45,6 +46,8 @@ class MemberDB(ASAP_DB):
         self.insert_values('person', columns, values)
 
     def update_data(self, member:Member, member_code):
+        
+
         self.member_dict[member_code] = member
         self.IDPW[member.ID] = (member.PW, member_code)
         if member.name not in self.name:
@@ -52,9 +55,6 @@ class MemberDB(ASAP_DB):
         else:
             self.name[member.name].append(member_code)
             
-        print(self.IDPW)
-        print(self.member_dict)
-        print(self.name)
 
     def del_member(self, member:Member):
         if member.member_code in self.member_dict:
@@ -68,6 +68,10 @@ class MemberDB(ASAP_DB):
             self.delete_values('person', f'member_code="{member.member_code}"')
 
     def init_db(self):
+        self.member_dict = {} # 회원 번호 : person
+        self.name = {} # 회원 이름 : 회원 번호
+        self.IDPW = {}
+        
         data = self.get_data('person')
 
         for person in data:
