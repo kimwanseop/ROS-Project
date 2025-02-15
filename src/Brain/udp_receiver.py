@@ -149,6 +149,7 @@ class UdpReceiverNode(Node):
     def receive_and_command(self):
         try:
             data, addr = self.udp_socket.recvfrom(65536)
+            print(data)
 
             np_array = np.frombuffer(data, dtype=np.uint8)
 

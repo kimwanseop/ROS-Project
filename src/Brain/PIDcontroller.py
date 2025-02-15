@@ -79,10 +79,10 @@ class PIDController(Node):
         sign = msg.data
         if sign == 3:
             self.is_manual = True
-            self.get_logger().info(f"manual driving")
+            # self.get_logger().info(f"manual driving")
         elif sign == 4:
             self.is_manual = False
-            self.get_logger().info(f"autonomous driving")
+            # self.get_logger().info(f"autonomous driving")
 
 
     # def send_obstacle_request(self, is_obstacle):
@@ -238,4 +238,3 @@ def main(args=None):
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
-
